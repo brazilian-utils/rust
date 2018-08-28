@@ -1,6 +1,6 @@
-const SIZE: usize = 11;
+use std::char;
 
-const CHECK_DIGITS: [usize; 2] = [9, 10];
+const SIZE: usize = 11;
 
 const BLACKLIST: [&str; 12] = [
     "000",
@@ -22,11 +22,27 @@ pub fn is_valid(input: &str) -> bool {
         return false;
     }
 
-    true
+    is_valid_checksum(&input)
 }
 
 fn is_blacklisted(input: &str) -> bool {
     BLACKLIST.contains(&input)
+}
+
+fn is_valid_checksum(input: &str) -> bool {
+    [9, 10].iter().all(|&check| {
+        let digits = &input[0..check];
+        let mut weight = digits.len() + 1;
+        let mut mod_val = digits.chars().fold(0, |acc, curr| -> usize {
+            weight = weight - 1;
+            acc + ((curr.to_digit(10).unwrap() as usize) * (weight + 1))
+        }) % 11;
+
+        mod_val = if mod_val < 2 { 0 } else { 11 - mod_val };
+        let char_mod = char::from_digit(mod_val as u32, 10).unwrap();
+
+        input.chars().nth(check).unwrap() == char_mod
+    })
 }
 
 #[cfg(test)]
