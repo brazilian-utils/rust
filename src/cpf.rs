@@ -50,15 +50,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_validates() {
-        let valid_inputs = ["02287813020", "02915205027"];
-        let invalid_inputs = ["00000000000", "11111111111"];
-
-        for input in valid_inputs.iter() {
+    fn it_validates_without_mask() {
+        for input in ["96271845860", "40364478829"].iter() {
             assert_eq!(is_valid(input), true);
         }
 
-        for input in invalid_inputs.iter() {
+        for input in BLACKLIST.iter() {
             assert_eq!(is_valid(input), false);
         }
     }
