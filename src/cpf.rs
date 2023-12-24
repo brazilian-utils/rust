@@ -8,6 +8,21 @@ const CPF_CALCULATE_BASE_NUMBER: i32 = 11;
 const CPF_FIRST_DIGIT_POSITION: usize = 10;
 const CPF_SECOND_DIGIT_POSITION: usize = 11;
 
+
+/// Verify if a given CPF (brazilian identification number) is a valid CPF
+/// ```rust
+/// #[test]
+/// fn should_is_valid_cpf() {
+///     let cpf = "00000000191";
+///     assert!(is_valid(cpf));
+/// }
+/// 
+/// #[test]
+/// fn should_is_invalid_cpf() {
+///     let cpf = "00000000091";
+///     assert!(!is_valid(cpf));
+/// }
+/// ```
 pub fn is_valid(input: &str) -> bool {
     if input.len() != CPF_SIZE || is_invalid_cpf(input) {
         return false;
@@ -15,6 +30,15 @@ pub fn is_valid(input: &str) -> bool {
     is_valid_checksum(input)
 }
 
+/// Generate a valid CPF (brazilian identification number) number that
+/// can be tested with is_valid method
+/// ```rust
+/// #[test]
+/// fn should_is_valid_cpf() {
+///     let cpf = generate_cpf();
+///     assert!(is_valid(cpf));
+/// }
+/// ```
 pub fn generate_cpf() -> String {
     let digits: Vec<u8> = (0..CPF_SIZE - 2)
         .map(|_| {
