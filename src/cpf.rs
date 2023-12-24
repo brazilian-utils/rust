@@ -9,10 +9,10 @@ const CPF_FIRST_DIGIT_POSITION: usize = 10;
 const CPF_SECOND_DIGIT_POSITION: usize = 11;
 
 pub fn is_valid(input: &str) -> bool {
-    if input.len() != CPF_SIZE || is_invalid_cpf(&input) {
+    if input.len() != CPF_SIZE || is_invalid_cpf(input) {
         return false;
     }
-    is_valid_checksum(&input)
+    is_valid_checksum(input)
 }
 
 pub fn generate_cpf() -> String {
@@ -34,7 +34,7 @@ fn is_invalid_cpf(input: &str) -> bool {
 }
 
 fn is_valid_checksum(input: &str) -> bool {
-    &input[9..] == calc_validation_digits(&input[..9])
+    input[9..] == calc_validation_digits(&input[..9])
 }
 
 fn calculate_digit(input: &str, digit_to_calc: usize) -> i32 {
