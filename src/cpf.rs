@@ -1,4 +1,4 @@
-use std::char;
+use std::{char, collections::HashSet};
 
 use rand::random;
 
@@ -8,23 +8,8 @@ const CPF_CALCULATE_BASE_NUMBER: i32 = 11;
 const CPF_FIRST_DIGIT_POSITION: usize = 10;
 const CPF_SECOND_DIGIT_POSITION: usize = 11;
 
-const INVALID_LIST: [&str; 12] = [
-    "000",
-    "00000000000",
-    "11111111111",
-    "22222222222",
-    "33333333333",
-    "44444444444",
-    "55555555555",
-    "66666666666",
-    "77777777777",
-    "88888888888",
-    "99999999999",
-    "999999999999",
-];
-
 pub fn is_valid(input: &str) -> bool {
-    if input.len() != CPF_SIZE || is_blacklisted(&input) {
+    if input.len() != CPF_SIZE || is_invalid_cpf(&input) {
         return false;
     }
     is_valid_checksum(&input)
@@ -38,41 +23,49 @@ pub fn generate_cpf() -> String {
         })
         .collect();
     let digits_string = String::from_utf8(digits).unwrap();
-    let validation_digits = calc_validation_digts(&digits_string);
+    let validation_digits = calc_validation_digits(&digits_string);
     format!("{}{}", digits_string, validation_digits)
 }
 
-fn is_blacklisted(input: &str) -> bool {
-    INVALID_LIST.contains(&input)
+#[inline(always)]
+fn is_invalid_cpf(input: &str) -> bool {
+    let digits: HashSet<char> = input.chars().collect();
+    digits.len() == 1
 }
 
 fn is_valid_checksum(input: &str) -> bool {
-    &input[9..] == calc_validation_digts(&input[..9])
+    &input[9..] == calc_validation_digits(&input[..9])
 }
 
 fn calculate_digit(input: &str, digit_to_calc: usize) -> i32 {
-    let digit_mod_calc = 
-        input[0..digit_to_calc - 1]
-            .chars()
-            .map(|ch| ch as i32 % ASCII_ZERO_CHAR_VALUE as i32)
-            .fold(((digit_to_calc) as i32, 0), |prev: (i32, i32), act: i32| {
-                let (mut multiply, mut val) = prev;
-                val += act * multiply;
-                multiply -= 1;
-                (multiply, val)
-            }).1 % CPF_CALCULATE_BASE_NUMBER;
+    let digit_mod_calc = input[0..digit_to_calc - 1]
+        .chars()
+        .map(|ch| ch as i32 % ASCII_ZERO_CHAR_VALUE as i32)
+        .fold(((digit_to_calc) as i32, 0), |prev: (i32, i32), act: i32| {
+            let (mut multiply, mut val) = prev;
+            val += act * multiply;
+            multiply -= 1;
+            (multiply, val)
+        })
+        .1
+        % CPF_CALCULATE_BASE_NUMBER;
     let digit = CPF_CALCULATE_BASE_NUMBER - (digit_mod_calc);
     if digit >= 10 {
         0
     } else {
         digit
-    } 
+    }
 }
 
-fn calc_validation_digts(input: &str) -> String {
+fn calc_validation_digits(input: &str) -> String {
     let first_digit = (calculate_digit(input, CPF_FIRST_DIGIT_POSITION)) as u8;
-    let second_digt = (calculate_digit(&format!("{input}{first_digit}"), CPF_SECOND_DIGIT_POSITION)) as u8;
-    String::from_utf8(vec![first_digit + ASCII_ZERO_CHAR_VALUE, second_digt + ASCII_ZERO_CHAR_VALUE]).unwrap()
+    let second_digt =
+        (calculate_digit(&format!("{input}{first_digit}"), CPF_SECOND_DIGIT_POSITION)) as u8;
+    String::from_utf8(vec![
+        first_digit + ASCII_ZERO_CHAR_VALUE,
+        second_digt + ASCII_ZERO_CHAR_VALUE,
+    ])
+    .unwrap()
 }
 
 #[cfg(test)]
@@ -88,6 +81,20 @@ mod tests {
 
     #[test]
     fn it_validates_invalid_list() {
+        const INVALID_LIST: [&str; 12] = [
+            "000",
+            "00000000000",
+            "11111111111",
+            "22222222222",
+            "33333333333",
+            "44444444444",
+            "55555555555",
+            "66666666666",
+            "77777777777",
+            "88888888888",
+            "99999999999",
+            "999999999999",
+        ];
         for input in INVALID_LIST.iter() {
             assert!(!is_valid(input), "expected '{input}' is a invalid cpf");
         }
@@ -95,9 +102,7 @@ mod tests {
 
     #[test]
     fn should_generate_a_valid_cpf() {
-        let cpfs: Vec<String> = (0..1000).map(
-            |_| generate_cpf()
-        ).collect();
+        let cpfs: Vec<String> = (0..1000).map(|_| generate_cpf()).collect();
         for input in cpfs {
             assert!(is_valid(&input), "expected cpf '{input}' is a valid cpf")
         }
