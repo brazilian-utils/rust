@@ -1,6 +1,9 @@
 [package]
 name = "brazilian_utils"
 version = "0.1.0"
-authors = ["Andreo Vieira <andreo.vieira@agibank.com.br>"]
+license = "MIT"
+edition = "2021"
+authors = ["Andreo Vieira <andreo.vieira@agibank.com.br>", "Paulo G. J. Bezerra <contact@pgjbz.dev>"]
 
 [dependencies]
+rand = "0.8.5"

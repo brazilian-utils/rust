@@ -1,48 +1,98 @@
-use std::char;
+use std::{char, collections::HashSet};
 
-const SIZE: usize = 11;
+use rand::random;
 
-const BLACKLIST: [&str; 12] = [
-    "000",
-    "00000000000",
-    "11111111111",
-    "22222222222",
-    "33333333333",
-    "44444444444",
-    "55555555555",
-    "66666666666",
-    "77777777777",
-    "88888888888",
-    "99999999999",
-    "999999999999",
-];
+const ASCII_ZERO_CHAR_VALUE: u8 = 48;
+const CPF_SIZE: usize = 11;
+const CPF_CALCULATE_BASE_NUMBER: i32 = 11;
+const CPF_FIRST_DIGIT_POSITION: usize = 10;
+const CPF_SECOND_DIGIT_POSITION: usize = 11;
 
+
+/// Verify if a given CPF (brazilian identification number) is a valid CPF
+/// ```rust
+/// #[test]
+/// fn should_is_valid_cpf() {
+///     let cpf = "00000000191";
+///     assert!(is_valid(cpf));
+/// }
+/// 
+/// #[test]
+/// fn should_is_invalid_cpf() {
+///     let cpf = "00000000091";
+///     assert!(!is_valid(cpf));
+/// }
+/// ```
 pub fn is_valid(input: &str) -> bool {
-    if input.len() != SIZE || is_blacklisted(&input) {
+    if input.len() != CPF_SIZE || is_invalid_cpf(input) {
         return false;
     }
-
-    is_valid_checksum(&input)
+    is_valid_checksum(input)
 }
 
-fn is_blacklisted(input: &str) -> bool {
-    BLACKLIST.contains(&input)
+/// Generate a valid CPF (brazilian identification number) number that
+/// can be tested with is_valid method
+/// ```rust
+/// #[test]
+/// fn should_is_valid_cpf() {
+///     let cpf = generate_cpf();
+///     assert!(is_valid(cpf));
+/// }
+/// ```
+pub fn generate_cpf() -> String {
+    let digits: Vec<u8> = (0..CPF_SIZE - 2)
+        .map(|_| {
+            let digit = random::<u32>() % 10;
+            char::from_digit(digit, 10).unwrap() as u8
+        })
+        .collect();
+    let digits_string = String::from_utf8(digits).unwrap();
+    let validation_digits = calc_validation_digits(&digits_string);
+    format!("{}{}", digits_string, validation_digits)
+}
+
+#[inline(always)]
+fn is_invalid_cpf(input: &str) -> bool {
+    if input.chars().any(|c| c.is_alphabetic()) {
+        return true;
+    }
+    let digits: HashSet<char> = input.chars().collect();
+    digits.len() == 1
 }
 
 fn is_valid_checksum(input: &str) -> bool {
-    [9, 10].iter().all(|&check| {
-        let digits = &input[0..check];
-        let mut weight = digits.len() + 1;
-        let mut mod_val = digits.chars().fold(0, |acc, curr| -> usize {
-            weight = weight - 1;
-            acc + ((curr.to_digit(10).unwrap() as usize) * (weight + 1))
-        }) % 11;
+    input[9..] == calc_validation_digits(&input[..9])
+}
 
-        mod_val = if mod_val < 2 { 0 } else { 11 - mod_val };
-        let char_mod = char::from_digit(mod_val as u32, 10).unwrap();
+fn calculate_digit(input: &str, digit_to_calc: usize) -> i32 {
+    let digit_mod_calc = input[0..digit_to_calc - 1]
+        .chars()
+        .map(|ch| ch as i32 % ASCII_ZERO_CHAR_VALUE as i32)
+        .fold(((digit_to_calc) as i32, 0), |prev: (i32, i32), act: i32| {
+            let (mut multiply, mut val) = prev;
+            val += act * multiply;
+            multiply -= 1;
+            (multiply, val)
+        })
+        .1
+        % CPF_CALCULATE_BASE_NUMBER;
+    let digit = CPF_CALCULATE_BASE_NUMBER - (digit_mod_calc);
+    if digit >= 10 {
+        0
+    } else {
+        digit
+    }
+}
 
-        input.chars().nth(check).unwrap() == char_mod
-    })
+fn calc_validation_digits(input: &str) -> String {
+    let first_digit = (calculate_digit(input, CPF_FIRST_DIGIT_POSITION)) as u8;
+    let second_digt =
+        (calculate_digit(&format!("{input}{first_digit}"), CPF_SECOND_DIGIT_POSITION)) as u8;
+    String::from_utf8(vec![
+        first_digit + ASCII_ZERO_CHAR_VALUE,
+        second_digt + ASCII_ZERO_CHAR_VALUE,
+    ])
+    .unwrap()
 }
 
 #[cfg(test)]
@@ -51,12 +101,40 @@ mod tests {
 
     #[test]
     fn it_validates_without_mask() {
-        for input in ["96271845860", "40364478829"].iter() {
-            assert_eq!(is_valid(input), true);
+        for input in ["96271845860", "40364478829", "00000000191"].iter() {
+            assert!(is_valid(input), "expected '{input}' is a valid cpf");
         }
+    }
 
-        for input in BLACKLIST.iter() {
-            assert_eq!(is_valid(input), false);
+    #[test]
+    fn it_validates_invalid_list() {
+        let invalid_list = [
+            "000",
+            "00000000000",
+            "11111111111",
+            "22222222222",
+            "33333333333",
+            "44444444444",
+            "55555555555",
+            "66666666666",
+            "77777777777",
+            "88888888888",
+            "99999999999",
+            "999999999999",
+            "aaaaaaaaaaa",
+            "abcdefghijk",
+            "",
+        ];
+        for input in invalid_list.iter() {
+            assert!(!is_valid(input), "expected '{input}' is a invalid cpf");
+        }
+    }
+
+    #[test]
+    fn should_generate_a_valid_cpf() {
+        let cpfs: Vec<String> = (0..1000).map(|_| generate_cpf()).collect();
+        for input in cpfs {
+            assert!(is_valid(&input), "expected cpf '{input}' is a valid cpf")
         }
     }
 }
