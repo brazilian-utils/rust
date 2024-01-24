@@ -53,6 +53,9 @@ pub fn generate_cpf() -> String {
 
 #[inline(always)]
 fn is_invalid_cpf(input: &str) -> bool {
+    if input.chars().any(|c| c.is_alphabetic()) {
+        return true;
+    }
     let digits: HashSet<char> = input.chars().collect();
     digits.len() == 1
 }
@@ -105,7 +108,7 @@ mod tests {
 
     #[test]
     fn it_validates_invalid_list() {
-        const INVALID_LIST: [&str; 12] = [
+        let invalid_list = [
             "000",
             "00000000000",
             "11111111111",
@@ -118,8 +121,11 @@ mod tests {
             "88888888888",
             "99999999999",
             "999999999999",
+            "aaaaaaaaaaa",
+            "abcdefghijk",
+            "",
         ];
-        for input in INVALID_LIST.iter() {
+        for input in invalid_list.iter() {
             assert!(!is_valid(input), "expected '{input}' is a invalid cpf");
         }
     }
