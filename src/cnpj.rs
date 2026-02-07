@@ -23,8 +23,8 @@ const SIZE: usize = 14;
 /// ```
 /// use brazilian_utils::cnpj::remove_symbols;
 ///
-/// assert_eq!(remove_symbols("12.345/6789-01"), "1234567890100");
-/// assert_eq!(remove_symbols("98/76.543-2101"), "9876543210100");
+/// assert_eq!(remove_symbols("12.345.678/9012-34"), "12345678901234");
+/// assert_eq!(remove_symbols("98.765.432/1098-76"), "98765432109876");
 /// ```
 pub fn remove_symbols(dirty: &str) -> String {
     dirty.chars().filter(|c| *c != '.' && *c != '/' && *c != '-').collect()

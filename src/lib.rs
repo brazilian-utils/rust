@@ -2,6 +2,7 @@ pub mod cep;
 pub mod cnh;
 pub mod cnpj;
 pub mod cpf;
+pub mod currency;
 
 #[cfg(test)]
 mod tests {
@@ -75,6 +76,24 @@ mod tests {
         let generated = cnpj::generate(None);
         assert!(cnpj::is_valid(&generated));
         assert_eq!(generated.len(), 14);
+    }
+
+    #[test]
+    fn test_currency_module_accessible() {
+        // Test that Currency module functions are accessible
+        assert_eq!(
+            currency::format_currency(1234.56),
+            Some("R$ 1.234,56".to_string())
+        );
+        assert_eq!(
+            currency::format_currency(0.0),
+            Some("R$ 0,00".to_string())
+        );
+        assert_eq!(
+            currency::format_currency(-9876.54),
+            Some("R$ -9.876,54".to_string())
+        );
+        assert_eq!(currency::format_currency(f64::NAN), None);
     }
 }
 
