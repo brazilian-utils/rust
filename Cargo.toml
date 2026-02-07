@@ -1,6 +1,6 @@
 [package]
 name = "brazilian_utils"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Andreo Vieira <andreo.vieira@agibank.com.br>", "Paulo G. J. Bezerra <contact@pgjbz.dev>", "Leonel Sanches da Silva <leonel@designliquido.com.br>"]
 edition = "2021"
 description = "Brazilian utilities for Rust - validation and formatting for CPF, CNPJ, RENAVAM, voter ID, and more"
