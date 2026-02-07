@@ -4,6 +4,7 @@ pub mod cnpj;
 pub mod cpf;
 pub mod currency;
 pub mod date_utils;
+pub mod email;
 
 #[cfg(test)]
 mod tests {
@@ -117,6 +118,21 @@ mod tests {
         
         // Test is_holiday with invalid UF
         assert_eq!(date_utils::is_holiday(new_year, Some("XX")), None);
+    }
+
+    #[test]
+    fn test_email_module_accessible() {
+        // Test valid emails
+        assert!(email::is_valid("brutils@brutils.com"));
+        assert!(email::is_valid("user.name+tag@example.co.uk"));
+        assert!(email::is_valid("user@example.com"));
+        
+        // Test invalid emails
+        assert!(!email::is_valid("invalid-email@brutils"));
+        assert!(!email::is_valid(".invalid@example.com"));
+        assert!(!email::is_valid(""));
+        assert!(!email::is_valid("user@"));
+        assert!(!email::is_valid("@example.com"));
     }
 }
 
