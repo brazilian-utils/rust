@@ -3,6 +3,7 @@ pub mod cnh;
 pub mod cnpj;
 pub mod cpf;
 pub mod currency;
+pub mod date_utils;
 
 #[cfg(test)]
 mod tests {
@@ -94,6 +95,28 @@ mod tests {
             Some("R$ -9.876,54".to_string())
         );
         assert_eq!(currency::format_currency(f64::NAN), None);
+    }
+
+    #[test]
+    fn test_date_utils_module_accessible() {
+        use chrono::NaiveDate;
+        
+        // Test convert_date_to_text
+        assert_eq!(
+            date_utils::convert_date_to_text("01/01/2024"),
+            Some("Primeiro de janeiro de dois mil e vinte e quatro".to_string())
+        );
+        assert_eq!(date_utils::convert_date_to_text("invalid"), None);
+        
+        // Test is_holiday for national holidays
+        let new_year = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        assert_eq!(date_utils::is_holiday(new_year, None), Some(true));
+        
+        let regular_day = NaiveDate::from_ymd_opt(2024, 1, 2).unwrap();
+        assert_eq!(date_utils::is_holiday(regular_day, None), Some(false));
+        
+        // Test is_holiday with invalid UF
+        assert_eq!(date_utils::is_holiday(new_year, Some("XX")), None);
     }
 }
 
