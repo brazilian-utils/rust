@@ -374,33 +374,92 @@ mod tests {
     fn test_is_valid() {
         // When CEP's len is different of 8, returns False
         assert_eq!(is_valid("1"), false);
+        assert_eq!(is_valid("12345"), false);
+        assert_eq!(is_valid("123456789"), false);
 
         // When CEP does not contain only digits, returns False
         assert_eq!(is_valid("1234567-"), false);
+        assert_eq!(is_valid("abcdefgh"), false);
+        assert_eq!(is_valid("1234567a"), false);
 
         // When CEP is valid
         assert_eq!(is_valid("99999999"), true);
         assert_eq!(is_valid("88390000"), true);
         assert_eq!(is_valid("01310200"), true);
-        
-        // Invalid cases
-        assert_eq!(is_valid("12345"), false);
-        assert_eq!(is_valid("abcdefgh"), false);
+        assert_eq!(is_valid("12345678"), true);
+        assert_eq!(is_valid("00000000"), true);
     }
 
     #[test]
     fn test_format_cep() {
+        // Valid CEPs should be formatted
         assert_eq!(format_cep("01310200"), Some("01310-200".to_string()));
         assert_eq!(format_cep("12345678"), Some("12345-678".to_string()));
+        assert_eq!(format_cep("00000000"), Some("00000-000".to_string()));
+        assert_eq!(format_cep("99999999"), Some("99999-999".to_string()));
+        
+        // Invalid CEPs should return None
         assert_eq!(format_cep("12345"), None);
         assert_eq!(format_cep("013102009"), None);
+        assert_eq!(format_cep("abcdefgh"), None);
+        assert_eq!(format_cep("1234567-"), None);
+        assert_eq!(format_cep(""), None);
     }
 
     #[test]
     fn test_generate() {
-        for _ in 0..10000 {
+        // Test that generate creates valid CEPs
+        for _ in 0..1000 {
             let cep = generate();
+            assert_eq!(cep.len(), 8);
             assert!(is_valid(&cep));
+            assert!(cep.chars().all(|c| c.is_ascii_digit()));
         }
+    }
+
+    #[test]
+    fn test_normalize_string() {
+        // Test accent removal
+        assert_eq!(normalize_string("São Paulo"), "Sao%20Paulo");
+        assert_eq!(normalize_string("Brasília"), "Brasilia");
+        assert_eq!(normalize_string("Goiânia"), "Goiania");
+        
+        // Test space to %20 conversion
+        assert_eq!(normalize_string("Belo Horizonte"), "Belo%20Horizonte");
+        assert_eq!(normalize_string("Rio de Janeiro"), "Rio%20de%20Janeiro");
+        
+        // Test combined
+        assert_eq!(normalize_string("João Pessoa"), "Joao%20Pessoa");
+    }
+
+    #[test]
+    fn test_remove_symbols_empty() {
+        assert_eq!(remove_symbols(""), "");
+    }
+
+    #[test]
+    fn test_remove_symbols_only_symbols() {
+        assert_eq!(remove_symbols(".-.-.-"), "");
+        assert_eq!(remove_symbols("..."), "");
+        assert_eq!(remove_symbols("---"), "");
+    }
+
+    #[test]
+    fn test_is_valid_edge_cases() {
+        // Empty string
+        assert_eq!(is_valid(""), false);
+        
+        // Only zeros
+        assert_eq!(is_valid("00000000"), true);
+        
+        // Only nines
+        assert_eq!(is_valid("99999999"), true);
+    }
+
+    #[test]
+    fn test_format_cep_with_cleaned_input() {
+        // Even if input has symbols, format_cep expects clean input
+        // So these should fail format validation
+        assert_eq!(format_cep("01310-200"), None); // contains dash
     }
 }

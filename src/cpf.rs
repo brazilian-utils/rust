@@ -50,13 +50,62 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_validates_without_mask() {
-        for input in ["96271845860", "40364478829"].iter() {
-            assert_eq!(is_valid(input), true);
-        }
+    fn test_is_valid() {
+        // Valid CPFs
+        assert_eq!(is_valid("96271845860"), true);
+        assert_eq!(is_valid("40364478829"), true);
+        assert_eq!(is_valid("11144477735"), true);
+        assert_eq!(is_valid("82178537464"), true);
+        assert_eq!(is_valid("55550207753"), true);
 
+        // Invalid CPFs - wrong length
+        assert_eq!(is_valid("1"), false);
+        assert_eq!(is_valid("123456789"), false);
+        assert_eq!(is_valid("123456789012"), false);
+
+        // Invalid CPFs - non-digits
+        assert_eq!(is_valid("1112223334-"), false);
+        assert_eq!(is_valid("111.444.777-35"), false);
+
+        // Invalid CPFs - blacklisted sequences
         for input in BLACKLIST.iter() {
             assert_eq!(is_valid(input), false);
         }
+
+        // Invalid CPFs - wrong checksum
+        assert_eq!(is_valid("11144477705"), false);
+        assert_eq!(is_valid("11144477732"), false);
+        assert_eq!(is_valid("11111111215"), false);
+    }
+
+    #[test]
+    fn test_is_blacklisted() {
+        assert_eq!(is_blacklisted("00000000000"), true);
+        assert_eq!(is_blacklisted("11111111111"), true);
+        assert_eq!(is_blacklisted("99999999999"), true);
+        assert_eq!(is_blacklisted("12345678901"), false);
+    }
+
+    #[test]
+    fn test_is_valid_checksum() {
+        // Valid checksums
+        assert_eq!(is_valid_checksum("11144477735"), true);
+        assert_eq!(is_valid_checksum("96271845860"), true);
+        
+        // Invalid checksums
+        assert_eq!(is_valid_checksum("11144477705"), false);
+        assert_eq!(is_valid_checksum("11144477732"), false);
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        // Empty string
+        assert_eq!(is_valid(""), false);
+        
+        // Special characters
+        assert_eq!(is_valid("!@#$%^&*()_"), false);
+        
+        // Mixed valid and invalid
+        assert_eq!(is_valid("111444777a5"), false);
     }
 }
