@@ -6,6 +6,7 @@ pub mod currency;
 pub mod date_utils;
 pub mod email;
 pub mod legal_nature;
+pub mod legal_process;
 
 #[cfg(test)]
 mod tests {
@@ -166,6 +167,33 @@ mod tests {
             table.get("2062"),
             Some(&"Sociedade Empresária Limitada".to_string())
         );
+    }
+
+    #[test]
+    fn test_legal_process_module_accessible() {
+        // Test remove_symbols
+        assert_eq!(
+            legal_process::remove_symbols("6439067-89.2023.4.04.5902"),
+            "64390678920234045902"
+        );
+        
+        // Test format_legal_process
+        assert_eq!(
+            legal_process::format_legal_process("23141945820055070079"),
+            Some("2314194-58.2005.5.07.0079".to_string())
+        );
+        assert_eq!(legal_process::format_legal_process("123"), None);
+        
+        // Test is_valid
+        assert!(legal_process::is_valid("10188748220234018200"));
+        assert!(legal_process::is_valid("45532346920234025107"));
+        assert!(!legal_process::is_valid("00000000000000000000"));
+        assert!(!legal_process::is_valid("123"));
+        
+        // Test generate
+        let id = legal_process::generate(None, Some(5));
+        assert!(id.is_some());
+        assert_eq!(id.unwrap().len(), 20);
     }
 }
 
