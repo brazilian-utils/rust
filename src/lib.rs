@@ -12,6 +12,32 @@ mod tests {
         // Test that CPF module functions are accessible
         assert!(cpf::is_valid("11144477735"));
         assert!(!cpf::is_valid("00000000000"));
+        
+        // Test validate
+        assert!(cpf::validate("82178537464"));
+        assert!(!cpf::validate("12345678901"));
+        
+        // Test format_cpf
+        assert_eq!(
+            cpf::format_cpf("82178537464"),
+            Some("821.785.374-64".to_string())
+        );
+        assert_eq!(cpf::format_cpf("00000000000"), None);
+        
+        // Test remove_symbols
+        assert_eq!(cpf::remove_symbols("821.785.374-64"), "82178537464");
+        
+        // Test generate
+        let generated = cpf::generate();
+        assert_eq!(generated.len(), 11);
+        assert!(cpf::is_valid(&generated));
+        
+        // Test hashdigit
+        assert_eq!(cpf::hashdigit("52599927765", 10), 6);
+        assert_eq!(cpf::hashdigit("52599927765", 11), 5);
+        
+        // Test compute_checksum
+        assert_eq!(cpf::compute_checksum("525131277"), "65");
     }
 
     #[test]
