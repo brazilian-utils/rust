@@ -8,6 +8,7 @@ pub mod email;
 pub mod legal_nature;
 pub mod legal_process;
 pub mod license_plate;
+pub mod phone;
 
 #[cfg(test)]
 mod tests {
@@ -237,6 +238,46 @@ mod tests {
         let plate = license_plate::generate(None);
         assert!(plate.is_some());
         assert_eq!(plate.unwrap().len(), 7);
+    }
+
+    #[test]
+    fn test_phone_module_accessible() {
+        // Test remove_symbols
+        assert_eq!(phone::remove_symbols("(11)99402-9275"), "11994029275");
+        
+        // Test is_valid
+        assert!(phone::is_valid("11994029275", None));
+        assert!(phone::is_valid("1635014415", None));
+        assert!(phone::is_valid("11994029275", Some("mobile")));
+        assert!(phone::is_valid("1635014415", Some("landline")));
+        assert!(!phone::is_valid("123", None));
+        
+        // Test format_phone
+        assert_eq!(
+            phone::format_phone("11994029275"),
+            Some("(11)99402-9275".to_string())
+        );
+        assert_eq!(
+            phone::format_phone("1635014415"),
+            Some("(16)3501-4415".to_string())
+        );
+        assert_eq!(phone::format_phone("123"), None);
+        
+        // Test remove_international_dialing_code
+        assert_eq!(
+            phone::remove_international_dialing_code("5511994029275"),
+            "11994029275"
+        );
+        
+        // Test generate
+        let phone_number = phone::generate(None);
+        assert!(phone_number.len() == 10 || phone_number.len() == 11);
+        
+        let mobile = phone::generate(Some("mobile"));
+        assert_eq!(mobile.len(), 11);
+        
+        let landline = phone::generate(Some("landline"));
+        assert_eq!(landline.len(), 10);
     }
 }
 
