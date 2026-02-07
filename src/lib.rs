@@ -10,6 +10,7 @@ pub mod legal_process;
 pub mod license_plate;
 pub mod phone;
 pub mod pis;
+pub mod renavam;
 
 #[cfg(test)]
 mod tests {
@@ -307,6 +308,25 @@ mod tests {
         let pis_number = pis::generate();
         assert_eq!(pis_number.len(), 11);
         assert!(pis::is_valid(&pis_number));
+    }
+
+    #[test]
+    fn test_renavam_module_accessible() {
+        // Test is_valid
+        assert!(renavam::is_valid("86769597308"));
+        assert!(renavam::is_valid("01234567897"));
+        assert!(!renavam::is_valid("12345678901"));
+        assert!(!renavam::is_valid("11111111111"));
+        assert!(!renavam::is_valid("123"));
+        
+        // Test calculate_checksum
+        assert_eq!(renavam::calculate_checksum("8676959730"), 8);
+        assert_eq!(renavam::calculate_checksum("0123456789"), 7);
+        
+        // Test generate
+        let renavam_number = renavam::generate();
+        assert_eq!(renavam_number.len(), 11);
+        assert!(renavam::is_valid(&renavam_number));
     }
 }
 
