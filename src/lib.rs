@@ -11,6 +11,7 @@ pub mod license_plate;
 pub mod phone;
 pub mod pis;
 pub mod renavam;
+pub mod voter_id;
 
 #[cfg(test)]
 mod tests {
@@ -327,6 +328,39 @@ mod tests {
         let renavam_number = renavam::generate();
         assert_eq!(renavam_number.len(), 11);
         assert!(renavam::is_valid(&renavam_number));
+    }
+
+    #[test]
+    fn test_voter_id_module_accessible() {
+        // Test is_valid
+        assert!(voter_id::is_valid("690847092828"));
+        assert!(voter_id::is_valid("163204010922"));
+        assert!(!voter_id::is_valid("123456789012"));
+        assert!(!voter_id::is_valid("123"));
+        
+        // Test format_voter_id
+        assert_eq!(
+            voter_id::format_voter_id("690847092828"),
+            Some("6908 4709 28 28".to_string())
+        );
+        assert_eq!(
+            voter_id::format_voter_id("163204010922"),
+            Some("1632 0401 09 22".to_string())
+        );
+        assert_eq!(voter_id::format_voter_id("123"), None);
+        
+        // Test generate
+        let voter_id_sp = voter_id::generate(Some("SP")).unwrap();
+        assert_eq!(voter_id_sp.len(), 12);
+        assert!(voter_id::is_valid(&voter_id_sp));
+        
+        let voter_id_default = voter_id::generate(None).unwrap();
+        assert_eq!(voter_id_default.len(), 12);
+        assert!(voter_id::is_valid(&voter_id_default));
+        
+        // Test calculate_vd1 and calculate_vd2
+        assert_eq!(voter_id::calculate_vd1("69084709", "28"), 2);
+        assert_eq!(voter_id::calculate_vd2("28", 2), 8);
     }
 }
 
