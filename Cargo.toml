@@ -1,7 +1,7 @@
 [package]
 name = "brazilian_utils"
 version = "0.1.0"
-authors = ["Andreo Vieira <andreo.vieira@agibank.com.br>"]
+authors = ["Andreo Vieira <andreo.vieira@agibank.com.br>", "Paulo G. J. Bezerra <contact@pgjbz.dev>", "Leonel Sanches da Silva <leonel@designliquido.com.br>"]
 edition = "2021"
 
 [dependencies]
