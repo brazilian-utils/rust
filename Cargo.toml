@@ -1,6 +1,6 @@
 [package]
 name = "brazilian_utils"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Andreo Vieira <andreo.vieira@agibank.com.br>", "Paulo G. J. Bezerra <contact@pgjbz.dev>", "Leonel Sanches da Silva <leonel@designliquido.com.br>"]
 edition = "2021"
 description = "Brazilian utilities for Rust - validation and formatting for CPF, CNPJ, RENAVAM, voter ID, and more"
@@ -11,6 +11,18 @@ documentation = "https://docs.rs/brazilian_utils"
 keywords = ["brazil", "cpf", "cnpj", "validation", "formatting"]
 categories = ["localization", "parsing"]
 readme = "README.md"
+
+[package.metadata.release]
+# Don't publish to crates.io automatically (let GitHub Actions do it)
+publish = false
+# Push to remote
+push-remote = "origin"
+# Enable pushing
+push = true
+# Tag prefix
+tag-prefix = "v"
+# Tag name format
+tag-name = "v{{version}}"
 
 [dependencies]
 rand = "0.8"
