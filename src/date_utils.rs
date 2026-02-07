@@ -1,7 +1,6 @@
-/// Date utilities for Brazilian dates.
-
-use chrono::{Datelike, NaiveDate, Weekday};
 use crate::currency::number_to_words;
+/// Date utilities for Brazilian dates.
+use chrono::{Datelike, NaiveDate, Weekday};
 
 /// Get the month name in Brazilian Portuguese.
 ///
@@ -65,16 +64,14 @@ pub fn convert_date_to_text(date: &str) -> Option<String> {
     if parts.len() != 3 {
         return None;
     }
-    
+
     let day: u32 = parts[0].parse().ok()?;
     let month: u32 = parts[1].parse().ok()?;
     let year: i32 = parts[2].parse().ok()?;
-    
+
     // Validate the date
-    if NaiveDate::from_ymd_opt(year, month, day).is_none() {
-        return None;
-    }
-    
+    NaiveDate::from_ymd_opt(year, month, day)?;
+
     // Convert day to text
     let day_str = if day == 1 {
         "Primeiro".to_string()
@@ -86,10 +83,10 @@ pub fn convert_date_to_text(date: &str) -> Option<String> {
         }
         text
     };
-    
+
     let month_name = get_month_name(month);
     let year_str = number_to_words(year as i64);
-    
+
     Some(format!("{} de {} de {}", day_str, month_name, year_str))
 }
 
@@ -117,7 +114,7 @@ fn calculate_easter(year: i32) -> NaiveDate {
     let m = (a + 11 * h + 22 * l) / 451;
     let month = (h + l - 7 * m + 114) / 31;
     let day = ((h + l - 7 * m + 114) % 31) + 1;
-    
+
     NaiveDate::from_ymd_opt(year, month as u32, day as u32).unwrap()
 }
 
@@ -133,7 +130,7 @@ fn calculate_easter(year: i32) -> NaiveDate {
 ///
 /// * `target_date` - The date to be checked.
 /// * `uf` - The state abbreviation (UF) to check for state holidays.
-///          If not provided, only national holidays will be considered.
+///   If not provided, only national holidays will be considered.
 ///
 /// # Returns
 ///
@@ -160,34 +157,33 @@ fn calculate_easter(year: i32) -> NaiveDate {
 /// ```
 pub fn is_holiday(target_date: NaiveDate, uf: Option<&str>) -> Option<bool> {
     const VALID_UFS: &[&str] = &[
-        "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
-        "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
-        "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+        "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB",
+        "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
     ];
-    
+
     // Check if UF is valid
     if let Some(state) = uf {
         if !VALID_UFS.contains(&state) {
             return None;
         }
     }
-    
+
     let year = target_date.year();
     let month = target_date.month();
     let day = target_date.day();
-    
+
     // Check national holidays
     if is_national_holiday(year, month, day, target_date) {
         return Some(true);
     }
-    
+
     // Check state holidays if UF is provided
     if let Some(state) = uf {
         if is_state_holiday(year, month, day, target_date, state) {
             return Some(true);
         }
     }
-    
+
     Some(false)
 }
 
@@ -195,24 +191,24 @@ pub fn is_holiday(target_date: NaiveDate, uf: Option<&str>) -> Option<bool> {
 fn is_national_holiday(year: i32, month: u32, day: u32, date: NaiveDate) -> bool {
     // Check fixed national holidays
     let is_fixed_holiday = match (month, day) {
-        (1, 1) => true,   // New Year's Day - Confraternização Universal
-        (4, 21) if year != 1931 && year != 1932 => true,  // Tiradentes' Day
-        (5, 1) if year >= 1925 => true,   // Labor Day
-        (9, 7) if year >= 1890 => true,   // Independence Day
+        (1, 1) => true, // New Year's Day - Confraternização Universal
+        (4, 21) if year != 1931 && year != 1932 => true, // Tiradentes' Day
+        (5, 1) if year >= 1925 => true, // Labor Day
+        (9, 7) if year >= 1890 => true, // Independence Day
         (10, 12) if year <= 1930 || year >= 1980 => true, // Our Lady of Aparecida
-        (11, 2) => true,  // All Souls' Day - Finados
+        (11, 2) => true, // All Souls' Day - Finados
         (11, 15) => true, // Republic Proclamation Day
         (12, 25) if year >= 1922 => true, // Christmas Day
         _ => false,
     };
-    
+
     if is_fixed_holiday {
         return true;
     }
-    
+
     // Check movable holidays (Easter-based)
     let easter = calculate_easter(year);
-    
+
     // Good Friday (2 days before Easter)
     let good_friday = easter - chrono::Duration::days(2);
     date == good_friday
@@ -224,52 +220,55 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
         // Lei n. 9.093, de 12.09.1995 - state holidays only from 1996 onwards
         return false;
     }
-    
+
     match uf {
         "AC" => {
             match (month, day) {
-                (1, 23) if year >= 2005 => true,  // Evangelical Day
-                (3, 8) if year >= 2002 => true,   // International Women's Day
-                (6, 15) => true,                   // Founding of Acre
-                (9, 5) if year >= 2004 => true,   // Amazonia Day
-                (11, 17) => true,                  // Signing of the Petropolis Treaty
+                (1, 23) if year >= 2005 => true, // Evangelical Day
+                (3, 8) if year >= 2002 => true,  // International Women's Day
+                (6, 15) => true,                 // Founding of Acre
+                (9, 5) if year >= 2004 => true,  // Amazonia Day
+                (11, 17) => true,                // Signing of the Petropolis Treaty
                 _ => false,
             }
         }
         "AL" => {
-            matches!((month, day),
+            matches!(
+                (month, day),
                 (6, 24) |   // Saint John's Day
                 (6, 29) |   // Saint Peter's Day
                 (9, 16) |   // Political Emancipation of Alagoas
-                (11, 20)    // Black Awareness Day
-            ) || (month == 11 && day == 30 && year >= 2013)  // Evangelical Day
+                (11, 20) // Black Awareness Day
+            ) || (month == 11 && day == 30 && year >= 2013) // Evangelical Day
         }
         "AM" => {
             (month == 9 && day == 5) ||  // Elevation of Amazonas to province
-            (month == 11 && day == 20 && year >= 2010)  // Black Awareness Day
+            (month == 11 && day == 20 && year >= 2010) // Black Awareness Day
         }
         "AP" => {
             match (month, day) {
                 (3, 19) if year >= 2003 => true,  // Saint Joseph's Day
                 (7, 25) if year >= 2012 => true,  // Saint James' Day
-                (9, 13) => true,                   // Creation of the Federal Territory
+                (9, 13) => true,                  // Creation of the Federal Territory
                 (11, 20) if year >= 2008 => true, // Black Awareness Day
                 _ => false,
             }
         }
         "BA" => {
-            matches!((month, day), (7, 2))  // Bahia Independence Day
+            matches!((month, day), (7, 2)) // Bahia Independence Day
         }
         "CE" => {
-            matches!((month, day),
+            matches!(
+                (month, day),
                 (3, 19) |   // Saint Joseph's Day
-                (3, 25)     // Abolition of slavery in Ceará
-            ) || (month == 8 && day == 15 && year >= 2004)  // Our Lady of Assumption
+                (3, 25) // Abolition of slavery in Ceará
+            ) || (month == 8 && day == 15 && year >= 2004) // Our Lady of Assumption
         }
         "DF" => {
-            matches!((month, day),
+            matches!(
+                (month, day),
                 (4, 21) |   // Founding of Brasilia
-                (11, 30)    // Evangelical Day
+                (11, 30) // Evangelical Day
             )
         }
         "ES" => {
@@ -283,28 +282,29 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
             }
         }
         "GO" => {
-            matches!((month, day),
+            matches!(
+                (month, day),
                 (7, 26) |   // Foundation of Goiás city
-                (10, 24)    // Foundation of Goiânia
+                (10, 24) // Foundation of Goiânia
             )
         }
         "MA" => {
-            matches!((month, day), (7, 28))  // Maranhão joining to independence
+            matches!((month, day), (7, 28)) // Maranhão joining to independence
         }
         "MG" => {
-            matches!((month, day), (4, 21))  // Tiradentes' Execution
+            matches!((month, day), (4, 21)) // Tiradentes' Execution
         }
         "MS" => {
-            matches!((month, day), (10, 11))  // State Creation Day
+            matches!((month, day), (10, 11)) // State Creation Day
         }
         "MT" => {
-            month == 11 && day == 20 && year >= 2003  // Black Awareness Day
+            month == 11 && day == 20 && year >= 2003 // Black Awareness Day
         }
         "PA" => {
-            matches!((month, day), (8, 15))  // Grão-Pará joining to independence
+            matches!((month, day), (8, 15)) // Grão-Pará joining to independence
         }
         "PB" => {
-            matches!((month, day), (8, 5))  // State Founding Day
+            matches!((month, day), (8, 5)) // State Founding Day
         }
         "PE" => {
             // Pernambuco Revolution (1st Sunday of March)
@@ -323,10 +323,10 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
             }
         }
         "PI" => {
-            matches!((month, day), (10, 19))  // Piauí Day
+            matches!((month, day), (10, 19)) // Piauí Day
         }
         "PR" => {
-            matches!((month, day), (12, 19))  // Emancipation of Paraná
+            matches!((month, day), (12, 19)) // Emancipation of Paraná
         }
         "RJ" => {
             match (month, day) {
@@ -337,20 +337,20 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
         }
         "RN" => {
             match (month, day) {
-                (8, 7) if year >= 2000 => true,   // Rio Grande do Norte Day
-                (10, 3) if year >= 2007 => true,  // Uruaçú and Cunhaú Martyrs Day
+                (8, 7) if year >= 2000 => true,  // Rio Grande do Norte Day
+                (10, 3) if year >= 2007 => true, // Uruaçú and Cunhaú Martyrs Day
                 _ => false,
             }
         }
         "RO" => {
             (month == 1 && day == 4) ||  // State Creation Day
-            (month == 6 && day == 18 && year >= 2002)  // Evangelical Day
+            (month == 6 && day == 18 && year >= 2002) // Evangelical Day
         }
         "RR" => {
-            matches!((month, day), (10, 5))  // State Creation Day
+            matches!((month, day), (10, 5)) // State Creation Day
         }
         "RS" => {
-            matches!((month, day), (9, 20))  // Gaucho Day
+            matches!((month, day), (9, 20)) // Gaucho Day
         }
         "SC" => {
             // Santa Catarina State Day (1st Sunday from Aug 11, if >= 2005)
@@ -373,7 +373,7 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
             } else {
                 false
             };
-            
+
             // Saint Catherine of Alexandria Day (Nov 25 or 1st Sunday from Nov 25)
             let is_saint_catherine = if (1999..=2030).contains(&year) && year != 2004 {
                 if month == 11 && day >= 25 {
@@ -392,20 +392,20 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
             } else {
                 month == 11 && day == 25
             };
-            
+
             is_sc_state_day || is_saint_catherine
         }
         "SE" => {
-            matches!((month, day), (7, 8))  // Sergipe Political Emancipation Day
+            matches!((month, day), (7, 8)) // Sergipe Political Emancipation Day
         }
         "SP" => {
-            month == 7 && day == 9 && year >= 1997  // Constitutionalist Revolution
+            month == 7 && day == 9 && year >= 1997 // Constitutionalist Revolution
         }
         "TO" => {
             match (month, day) {
-                (3, 18) if year >= 1998 => true,  // Autonomy Day
-                (9, 8) => true,                    // Our Lady of Nativity
-                (10, 5) => true,                   // State Creation Day
+                (3, 18) if year >= 1998 => true, // Autonomy Day
+                (9, 8) => true,                  // Our Lady of Nativity
+                (10, 5) => true,                 // State Creation Day
                 _ => false,
             }
         }
@@ -448,19 +448,19 @@ mod tests {
             is_holiday(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), None),
             Some(true)
         );
-        
+
         // Regular day
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(), None),
             Some(false)
         );
-        
+
         // Independence Day
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2024, 9, 7).unwrap(), None),
             Some(true)
         );
-        
+
         // Christmas
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(), None),
@@ -475,13 +475,13 @@ mod tests {
             is_holiday(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("BA")),
             Some(true)
         );
-        
+
         // Not a holiday in other states
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("SP")),
             Some(false)
         );
-        
+
         // São Paulo state holiday
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2024, 7, 9).unwrap(), Some("SP")),
@@ -504,7 +504,7 @@ mod tests {
             is_holiday(NaiveDate::from_ymd_opt(2024, 3, 29).unwrap(), None),
             Some(true)
         );
-        
+
         // Good Friday 2023 (April 7)
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2023, 4, 7).unwrap(), None),
@@ -515,13 +515,22 @@ mod tests {
     #[test]
     fn test_calculate_easter() {
         // Easter 2024 - March 31
-        assert_eq!(calculate_easter(2024), NaiveDate::from_ymd_opt(2024, 3, 31).unwrap());
-        
+        assert_eq!(
+            calculate_easter(2024),
+            NaiveDate::from_ymd_opt(2024, 3, 31).unwrap()
+        );
+
         // Easter 2023 - April 9
-        assert_eq!(calculate_easter(2023), NaiveDate::from_ymd_opt(2023, 4, 9).unwrap());
-        
+        assert_eq!(
+            calculate_easter(2023),
+            NaiveDate::from_ymd_opt(2023, 4, 9).unwrap()
+        );
+
         // Easter 2025 - April 20
-        assert_eq!(calculate_easter(2025), NaiveDate::from_ymd_opt(2025, 4, 20).unwrap());
+        assert_eq!(
+            calculate_easter(2025),
+            NaiveDate::from_ymd_opt(2025, 4, 20).unwrap()
+        );
     }
 
     #[test]

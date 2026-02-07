@@ -27,7 +27,10 @@ const SIZE: usize = 14;
 /// assert_eq!(remove_symbols("98.765.432/1098-76"), "98765432109876");
 /// ```
 pub fn remove_symbols(dirty: &str) -> String {
-    dirty.chars().filter(|c| *c != '.' && *c != '/' && *c != '-').collect()
+    dirty
+        .chars()
+        .filter(|c| *c != '.' && *c != '/' && *c != '-')
+        .collect()
 }
 
 /// Formats a CNPJ (Brazilian Company Registration Number) string for visual display.
@@ -161,17 +164,17 @@ pub fn is_valid(cnpj: &str) -> bool {
 /// ```
 pub fn generate(branch: Option<u32>) -> String {
     let mut rng = rand::thread_rng();
-    
+
     let mut branch_num = branch.unwrap_or(1);
     branch_num %= 10000;
     if branch_num == 0 {
         branch_num = 1;
     }
-    
+
     let branch_str = format!("{:04}", branch_num);
     let base_num = format!("{:08}", rng.gen_range(0..=99999999));
     let base = format!("{}{}", base_num, branch_str);
-    
+
     let checksum = compute_checksum(&base);
     format!("{}{}", base, checksum)
 }
@@ -244,7 +247,7 @@ pub fn compute_checksum(basenum: &str) -> String {
     let digit1 = hashdigit(basenum, 13);
     let with_digit1 = format!("{}{}", basenum, digit1);
     let digit2 = hashdigit(&with_digit1, 14);
-    
+
     format!("{}{}", digit1, digit2)
 }
 
@@ -291,44 +294,44 @@ mod tests {
     #[test]
     fn test_validate() {
         // Valid CNPJs
-        assert_eq!(validate("34665388000161"), true);
-        assert_eq!(validate("03560714000142"), true);
-        assert_eq!(validate("01838723000127"), true);
+        assert!(validate("34665388000161"));
+        assert!(validate("03560714000142"));
+        assert!(validate("01838723000127"));
 
         // Invalid CNPJs
-        assert_eq!(validate("52599927000100"), false);
-        assert_eq!(validate("00000000000"), false);
-        assert_eq!(validate("00000000000000"), false);
-        assert_eq!(validate("11111111111111"), false);
-        assert_eq!(validate("00111222000133"), false);
+        assert!(!validate("52599927000100"));
+        assert!(!validate("00000000000"));
+        assert!(!validate("00000000000000"));
+        assert!(!validate("11111111111111"));
+        assert!(!validate("00111222000133"));
     }
 
     #[test]
     fn test_is_valid() {
         // When CNPJ's len is different of 14, returns False
-        assert_eq!(is_valid("1"), false);
+        assert!(!is_valid("1"));
 
         // When CNPJ does not contain only digits, returns False
-        assert_eq!(is_valid("1112223334445-"), false);
+        assert!(!is_valid("1112223334445-"));
 
         // When CNPJ has only the same digit, returns false
-        assert_eq!(is_valid("11111111111111"), false);
+        assert!(!is_valid("11111111111111"));
 
         // When rest_1 is lt 2 and the 13th digit is not 0, returns False
-        assert_eq!(is_valid("1111111111315"), false);
+        assert!(!is_valid("1111111111315"));
 
         // When rest_1 is gte 2 and the 13th digit is not (11 - rest), returns False
-        assert_eq!(is_valid("1111111111115"), false);
+        assert!(!is_valid("1111111111115"));
 
         // When rest_2 is lt 2 and the 14th digit is not 0, returns False
-        assert_eq!(is_valid("11111111121205"), false);
+        assert!(!is_valid("11111111121205"));
 
         // When rest_2 is gte 2 and the 14th digit is not (11 - rest), returns False
-        assert_eq!(is_valid("11111111113105"), false);
+        assert!(!is_valid("11111111113105"));
 
         // When CNPJ is valid
-        assert_eq!(is_valid("34665388000161"), true);
-        assert_eq!(is_valid("01838723000127"), true);
+        assert!(is_valid("34665388000161"));
+        assert!(is_valid("01838723000127"));
     }
 
     #[test]
@@ -367,20 +370,20 @@ mod tests {
     #[test]
     fn test_edge_cases() {
         // Empty string
-        assert_eq!(is_valid(""), false);
+        assert!(!is_valid(""));
 
         // Too short
-        assert_eq!(is_valid("123456789012"), false);
+        assert!(!is_valid("123456789012"));
 
         // Too long
-        assert_eq!(is_valid("123456789012345"), false);
+        assert!(!is_valid("123456789012345"));
 
         // Contains letters
-        assert_eq!(is_valid("1234567890123a"), false);
+        assert!(!is_valid("1234567890123a"));
 
         // All same digit
-        assert_eq!(is_valid("00000000000000"), false);
-        assert_eq!(is_valid("99999999999999"), false);
+        assert!(!is_valid("00000000000000"));
+        assert!(!is_valid("99999999999999"));
     }
 
     #[test]

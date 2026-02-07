@@ -54,13 +54,24 @@ pub fn is_valid(voter_id: &str) -> bool {
 
     // Validate first check digit
     let vd1 = calculate_vd1(&sequential_number, &federative_union);
-    if vd1 != verifying_digits.chars().nth(0).and_then(|c| c.to_digit(10)).unwrap_or(99) as u8 {
+    if vd1
+        != verifying_digits
+            .chars().next()
+            .and_then(|c| c.to_digit(10))
+            .unwrap_or(99) as u8
+    {
         return false;
     }
 
     // Validate second check digit
     let vd2 = calculate_vd2(&federative_union, vd1);
-    if vd2 != verifying_digits.chars().nth(1).and_then(|c| c.to_digit(10)).unwrap_or(99) as u8 {
+    if vd2
+        != verifying_digits
+            .chars()
+            .nth(1)
+            .and_then(|c| c.to_digit(10))
+            .unwrap_or(99) as u8
+    {
         return false;
     }
 
@@ -124,21 +135,21 @@ pub fn format_voter_id(voter_id: &str) -> Option<String> {
 /// ```
 pub fn generate(federative_union: Option<&str>) -> Option<String> {
     let ufs = get_uf_map();
-    
+
     let uf = federative_union.unwrap_or("ZZ").to_uppercase();
-    
+
     if let Some(uf_number) = ufs.get(uf.as_str()) {
         if is_federative_union_valid(uf_number) {
             let mut rng = rand::thread_rng();
             let sequential_number = format!("{:08}", rng.gen_range(0..100000000));
-            
+
             let vd1 = calculate_vd1(&sequential_number, uf_number);
             let vd2 = calculate_vd2(uf_number, vd1);
-            
+
             return Some(format!("{}{}{}{}", sequential_number, uf_number, vd1, vd2));
         }
     }
-    
+
     None
 }
 
@@ -147,17 +158,17 @@ pub fn generate(federative_union: Option<&str>) -> Option<String> {
 /// Typically 12 digits, but can be 13 for SP and MG (edge case with 9-digit sequential number).
 fn is_length_valid(voter_id: &str) -> bool {
     let len = voter_id.len();
-    
+
     if len == 12 {
         return true;
     }
-    
+
     // Edge case: SP and MG with 9-digit sequential number
     if len == 13 {
         let federative_union = get_federative_union(voter_id);
         return federative_union == "01" || federative_union == "02";
     }
-    
+
     false
 }
 
@@ -183,7 +194,7 @@ fn get_verifying_digits(voter_id: &str) -> String {
 /// Check if a federative union code is valid (01-28).
 fn is_federative_union_valid(federative_union: &str) -> bool {
     if let Ok(num) = federative_union.parse::<u8>() {
-        num >= 1 && num <= 28
+        (1..=28).contains(&num)
     } else {
         false
     }
@@ -196,29 +207,33 @@ pub fn calculate_vd1(sequential_number: &str, federative_union: &str) -> u8 {
     if sequential_number.len() < 8 {
         return 0;
     }
-    
+
     let weights = [2, 3, 4, 5, 6, 7, 8, 9];
     let mut sum = 0;
-    
+
     for (i, weight) in weights.iter().enumerate() {
-        if let Some(digit) = sequential_number.chars().nth(i).and_then(|c| c.to_digit(10)) {
+        if let Some(digit) = sequential_number
+            .chars()
+            .nth(i)
+            .and_then(|c| c.to_digit(10))
+        {
             sum += digit * weight;
         }
     }
-    
+
     let rest = (sum % 11) as u8;
     let mut vd1 = rest;
-    
+
     // Edge case: rest == 0 and UF is SP (01) or MG (02)
     if rest == 0 && (federative_union == "01" || federative_union == "02") {
         vd1 = 1;
     }
-    
+
     // Edge case: rest == 10
     if rest == 10 {
         vd1 = 0;
     }
-    
+
     vd1
 }
 
@@ -229,31 +244,31 @@ pub fn calculate_vd2(federative_union: &str, vd1: u8) -> u8 {
     if federative_union.len() < 2 {
         return 0;
     }
-    
+
     let weights = [7, 8, 9];
     let mut sum = 0;
-    
-    if let Some(d1) = federative_union.chars().nth(0).and_then(|c| c.to_digit(10)) {
+
+    if let Some(d1) = federative_union.chars().next().and_then(|c| c.to_digit(10)) {
         sum += d1 * weights[0];
     }
     if let Some(d2) = federative_union.chars().nth(1).and_then(|c| c.to_digit(10)) {
         sum += d2 * weights[1];
     }
     sum += vd1 as u32 * weights[2];
-    
+
     let rest = (sum % 11) as u8;
     let mut vd2 = rest;
-    
+
     // Edge case: rest == 0 and UF is SP (01) or MG (02)
     if rest == 0 && (federative_union == "01" || federative_union == "02") {
         vd2 = 1;
     }
-    
+
     // Edge case: rest == 10
     if rest == 10 {
         vd2 = 0;
     }
-    
+
     vd2
 }
 
@@ -300,18 +315,18 @@ mod tests {
         // Valid voter IDs
         assert!(is_valid("690847092828"));
         assert!(is_valid("163204010922"));
-        
+
         // Invalid: wrong check digits
         assert!(!is_valid("123456789012"));
         assert!(!is_valid("690847092829"));
-        
+
         // Invalid: wrong length
         assert!(!is_valid("123"));
         assert!(!is_valid("12345678901234"));
-        
+
         // Invalid: contains non-digits
         assert!(!is_valid("6908470928a8"));
-        
+
         // Invalid: empty
         assert!(!is_valid(""));
     }
@@ -337,13 +352,13 @@ mod tests {
         assert_eq!(voter_id.len(), 12);
         assert!(is_valid(&voter_id));
         assert_eq!(get_federative_union(&voter_id), "01");
-        
+
         // Generate for default (ZZ)
         let voter_id_zz = generate(None).unwrap();
         assert_eq!(voter_id_zz.len(), 12);
         assert!(is_valid(&voter_id_zz));
         assert_eq!(get_federative_union(&voter_id_zz), "28");
-        
+
         // Invalid UF
         assert_eq!(generate(Some("XX")), None);
     }
@@ -364,7 +379,7 @@ mod tests {
     fn test_calculate_vd1() {
         // Test with known valid voter ID: 690847092828
         assert_eq!(calculate_vd1("69084709", "28"), 2);
-        
+
         // Test with known valid voter ID: 163204010922
         assert_eq!(calculate_vd1("16320401", "09"), 2);
     }
@@ -373,7 +388,7 @@ mod tests {
     fn test_calculate_vd2() {
         // Test with known valid voter ID: 690847092828
         assert_eq!(calculate_vd2("28", 2), 8);
-        
+
         // Test with known valid voter ID: 163204010922
         assert_eq!(calculate_vd2("09", 2), 2);
     }
@@ -416,12 +431,12 @@ mod tests {
     fn test_edge_case_sp_mg() {
         // Test edge case for SP (01) and MG (02) where rest = 0
         // When rest % 11 = 0, VD should be 1 for SP and MG
-        
+
         // Generate some voter IDs for SP and MG
         for _ in 0..10 {
             let voter_id_sp = generate(Some("SP")).unwrap();
             assert!(is_valid(&voter_id_sp));
-            
+
             let voter_id_mg = generate(Some("MG")).unwrap();
             assert!(is_valid(&voter_id_mg));
         }

@@ -1,5 +1,10 @@
 # Brazilian Utils - Rust
 
+[![CI](https://github.com/YOUR_USERNAME/brazilian-utils-rust/workflows/CI/badge.svg)](https://github.com/YOUR_USERNAME/brazilian-utils-rust/actions)
+[![Crates.io](https://img.shields.io/crates/v/brazilian_utils.svg)](https://crates.io/crates/brazilian_utils)
+[![Documentation](https://docs.rs/brazilian_utils/badge.svg)](https://docs.rs/brazilian_utils)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [English](#english) | [Português](#português)
 
 ---

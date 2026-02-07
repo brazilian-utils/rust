@@ -1,21 +1,21 @@
-use brazilian_utils::currency::{format_currency, convert_real_to_text, number_to_words};
+use brazilian_utils::currency::{convert_real_to_text, format_currency, number_to_words};
 
 fn main() {
     println!("=== Demonstração do Módulo Currency ===\n");
-    
+
     // Formatação de moeda
     println!("1. Formatação de moeda:");
     println!("   R$ 1.234,56: {:?}", format_currency(1234.56));
     println!("   R$ 1.000.000,00: {:?}", format_currency(1_000_000.00));
     println!("   R$ -9.876,54: {:?}\n", format_currency(-9876.54));
-    
+
     // Conversão de números para palavras
     println!("2. Números por extenso:");
     println!("   123: {}", number_to_words(123));
     println!("   1000: {}", number_to_words(1000));
     println!("   1111: {}", number_to_words(1111));
     println!("   1.000.000: {}\n", number_to_words(1_000_000));
-    
+
     // Conversão de valores em reais para texto
     println!("3. Valores em reais por extenso:");
     println!("   R$ 1,00: {}", convert_real_to_text(1.0));

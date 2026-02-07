@@ -1,5 +1,4 @@
 /// Legal process (processo jurídico) utilities for Brazilian legal system.
-
 use chrono::Datelike;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -40,7 +39,7 @@ fn load_legal_process_data() -> HashMap<String, OrgaoData> {
 /// assert_eq!(remove_symbols("9876543-21.0987.6.54.3210"), "98765432109876543210");
 /// ```
 pub fn remove_symbols(legal_process: &str) -> String {
-    legal_process.replace('.', "").replace('-', "")
+    legal_process.replace(['.', '-'], "")
 }
 
 /// Format a legal process ID into a standard format.
@@ -79,7 +78,7 @@ pub fn format_legal_process(legal_process_id: &str) -> Option<String> {
         let j = &legal_process_id[13..14];
         let tr = &legal_process_id[14..16];
         let oooo = &legal_process_id[16..20];
-        
+
         Some(format!("{}-{}.{}.{}.{}.{}", nnnnnnn, dd, aaaa, j, tr, oooo))
     } else {
         None
@@ -132,12 +131,12 @@ fn checksum(basenum: &str) -> String {
 /// ```
 pub fn is_valid(legal_process_id: &str) -> bool {
     let clean = remove_symbols(legal_process_id);
-    
+
     // Check length
     if clean.len() != 20 || !clean.chars().all(|c| c.is_ascii_digit()) {
         return false;
     }
-    
+
     // Extract components
     let nnnnnnn = &clean[0..7];
     let dd = &clean[7..9];
@@ -145,45 +144,45 @@ pub fn is_valid(legal_process_id: &str) -> bool {
     let j = &clean[13..14];
     let tr = &clean[14..16];
     let oooo = &clean[16..20];
-    
+
     // Parse components
     let j_num = match j.parse::<u32>() {
         Ok(n) => n,
         Err(_) => return false,
     };
-    
+
     let tr_num = match tr.parse::<u32>() {
         Ok(n) => n,
         Err(_) => return false,
     };
-    
+
     let oooo_num = match oooo.parse::<u32>() {
         Ok(n) => n,
         Err(_) => return false,
     };
-    
+
     // Load validation data
     let data = load_legal_process_data();
     let orgao_key = format!("orgao_{}", j_num);
-    
+
     // Check if orgao exists
     let orgao_data = match data.get(&orgao_key) {
         Some(d) => d,
         None => return false,
     };
-    
+
     // Validate tribunal and foro
-    let valid_process = orgao_data.id_tribunal.contains(&tr_num) 
-        && orgao_data.id_foro.contains(&oooo_num);
-    
+    let valid_process =
+        orgao_data.id_tribunal.contains(&tr_num) && orgao_data.id_foro.contains(&oooo_num);
+
     if !valid_process {
         return false;
     }
-    
+
     // Validate checksum
     let base_for_checksum = format!("{}{}{}{}{}", nnnnnnn, aaaa, j, tr, oooo);
     let expected_dd = checksum(&base_for_checksum);
-    
+
     dd == expected_dd
 }
 
@@ -192,7 +191,7 @@ pub fn is_valid(legal_process_id: &str) -> bool {
 /// # Arguments
 ///
 /// * `year` - The year for the legal process ID (default is the current year).
-///            The year should not be in the past.
+///   The year should not be in the past.
 /// * `orgao` - The organization code (1-9) for the legal process ID.
 ///
 /// # Returns
@@ -216,44 +215,41 @@ pub fn is_valid(legal_process_id: &str) -> bool {
 pub fn generate(year: Option<i32>, orgao: Option<u32>) -> Option<String> {
     let current_year = chrono::Local::now().year();
     let year = year.unwrap_or(current_year);
-    
+
     // Validate year (not in the past)
     if year < current_year {
         return None;
     }
-    
+
     // Random orgao if not provided
     let mut rng = rand::thread_rng();
     let orgao = orgao.unwrap_or_else(|| rng.gen_range(1..=9));
-    
+
     // Validate orgao (1-9)
     if !(1..=9).contains(&orgao) {
         return None;
     }
-    
+
     // Load validation data
     let data = load_legal_process_data();
     let orgao_key = format!("orgao_{}", orgao);
-    
-    let orgao_data = match data.get(&orgao_key) {
-        Some(d) => d,
-        None => return None,
-    };
-    
+
+    let orgao_data = data.get(&orgao_key)?;
+
     // Generate random components
     let nnnnnnn = format!("{:07}", rng.gen_range(0..10000000));
-    
+
     // Pick random tribunal and foro
     let tr_idx = rng.gen_range(0..orgao_data.id_tribunal.len());
     let tr = format!("{:02}", orgao_data.id_tribunal[tr_idx]);
-    
+
     let foro_idx = rng.gen_range(0..orgao_data.id_foro.len());
     let oooo = format!("{:04}", orgao_data.id_foro[foro_idx]);
-    
+
     // Calculate checksum
     let base_for_checksum = format!("{}{}{}{}{}", nnnnnnn, year, orgao, tr, oooo);
     let dd = checksum(&base_for_checksum);
-    
+
     Some(format!("{}{}{}{}{}{}", nnnnnnn, dd, year, orgao, tr, oooo))
 }
 
@@ -271,8 +267,14 @@ mod tests {
             remove_symbols("9876543-21.0987.6.54.3210"),
             "98765432109876543210"
         );
-        assert_eq!(remove_symbols("6439067-89.2023.4.04.5902"), "64390678920234045902");
-        assert_eq!(remove_symbols("64390678920234045902"), "64390678920234045902");
+        assert_eq!(
+            remove_symbols("6439067-89.2023.4.04.5902"),
+            "64390678920234045902"
+        );
+        assert_eq!(
+            remove_symbols("64390678920234045902"),
+            "64390678920234045902"
+        );
     }
 
     #[test]
@@ -314,17 +316,17 @@ mod tests {
         // Valid cases
         assert!(is_valid("10188748220234018200"));
         assert!(is_valid("45532346920234025107"));
-        
+
         // Invalid checksum
         assert!(!is_valid("10188748220239918200"));
-        
+
         // All zeros
         assert!(!is_valid("00000000000000000000"));
-        
+
         // Wrong length
         assert!(!is_valid("455323469202340251"));
         assert!(!is_valid("455323469202340257123123123"));
-        
+
         // Contains non-digits
         assert!(!is_valid("455323423QQWEQWSsasd&*(()"));
     }
@@ -339,23 +341,23 @@ mod tests {
     #[test]
     fn test_generate() {
         let current_year = chrono::Local::now().year();
-        
+
         // Generate with defaults
         let id = generate(None, None);
         assert!(id.is_some());
         let id_str = id.unwrap();
         assert_eq!(id_str.len(), 20);
-        
+
         // Check year in generated ID
         let year_part = &id_str[9..13];
         assert_eq!(year_part, current_year.to_string());
-        
+
         // Generate with specific year
         let id = generate(Some(3000), None);
         assert!(id.is_some());
         let id_str = id.unwrap();
         assert_eq!(&id_str[9..13], "3000");
-        
+
         // Generate with specific orgao
         let id = generate(None, Some(4));
         assert!(id.is_some());
@@ -366,10 +368,10 @@ mod tests {
     #[test]
     fn test_generate_invalid() {
         let current_year = chrono::Local::now().year();
-        
+
         // Year in the past
         assert_eq!(generate(Some(current_year - 1), None), None);
-        
+
         // Invalid orgao (0 or > 9)
         assert_eq!(generate(None, Some(0)), None);
         assert_eq!(generate(None, Some(10)), None);
@@ -382,7 +384,11 @@ mod tests {
             let id = generate(None, None);
             assert!(id.is_some());
             let id_str = id.unwrap();
-            assert!(is_valid(&id_str), "Generated ID should be valid: {}", id_str);
+            assert!(
+                is_valid(&id_str),
+                "Generated ID should be valid: {}",
+                id_str
+            );
         }
     }
 }

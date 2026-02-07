@@ -12,7 +12,7 @@ fn main() {
 
     // Example 2: Format license plates
     println!("2. Format License Plates:");
-    
+
     // Old format (LLLNNNN) - adds dash
     let old_plate = "ABC1234";
     match license_plate::format_license_plate(old_plate) {
@@ -21,7 +21,7 @@ fn main() {
         }
         None => println!("   Invalid plate: {}", old_plate),
     }
-    
+
     // Mercosul format (LLLNLNN) - uppercase only
     let mercosul_plate = "abc1d23";
     match license_plate::format_license_plate(mercosul_plate) {
@@ -34,14 +34,14 @@ fn main() {
 
     // Example 3: Validate license plates
     println!("3. Validate License Plates:");
-    
+
     let valid_plates = vec![
         ("ABC1234", None, "Any format"),
         ("ABC1D23", None, "Any format"),
         ("XYZ9876", Some("old_format"), "Old format only"),
         ("DEF5G89", Some("mercosul"), "Mercosul only"),
     ];
-    
+
     for (plate, format, description) in valid_plates {
         let is_valid = license_plate::is_valid(plate, format);
         println!(
@@ -51,7 +51,7 @@ fn main() {
             if is_valid { "✓ Valid" } else { "✗ Invalid" }
         );
     }
-    
+
     println!("\n   Invalid examples:");
     let invalid_plates = vec![
         ("ABC123", "Too short"),
@@ -59,7 +59,7 @@ fn main() {
         ("ABC12D3", "Invalid Mercosul pattern"),
         ("12ABC34", "Numbers before letters"),
     ];
-    
+
     for (plate, reason) in invalid_plates {
         let is_valid = license_plate::is_valid(plate, None);
         println!(
@@ -74,7 +74,7 @@ fn main() {
     // Example 4: Get format
     println!("4. Get License Plate Format:");
     let plates = vec!["ABC1234", "ABC1D23", "xyz9876", "def5g89"];
-    
+
     for plate in plates {
         match license_plate::get_format(plate) {
             Some(format) => println!("   {} -> {}", plate, format),
@@ -86,7 +86,7 @@ fn main() {
     // Example 5: Convert old format to Mercosul
     println!("5. Convert Old Format to Mercosul:");
     let old_plates = vec!["ABC1234", "XYZ9876", "DEF0000", "GHI4567"];
-    
+
     for plate in old_plates {
         match license_plate::convert_to_mercosul(plate) {
             Some(mercosul) => {
@@ -99,7 +99,7 @@ fn main() {
 
     // Example 6: Generate random license plates
     println!("6. Generate Random License Plates:");
-    
+
     // Generate Mercosul format (default)
     println!("   Mercosul format (default):");
     for _ in 0..3 {
@@ -108,7 +108,7 @@ fn main() {
             println!("      {}", formatted);
         }
     }
-    
+
     // Generate old format
     println!("\n   Old format:");
     for _ in 0..3 {

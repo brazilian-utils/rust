@@ -1,5 +1,4 @@
 /// PIS (Programa de Integração Social) utilities for Brazilian social integration numbers.
-
 use rand::Rng;
 
 /// Weights used for PIS checksum calculation.
@@ -41,19 +40,16 @@ pub fn remove_symbols(pis: &str) -> String {
 ///
 /// The checksum digit (0-9).
 pub fn checksum(base_pis: &str) -> u32 {
-    let pis_digits: Vec<u32> = base_pis
-        .chars()
-        .filter_map(|c| c.to_digit(10))
-        .collect();
-    
+    let pis_digits: Vec<u32> = base_pis.chars().filter_map(|c| c.to_digit(10)).collect();
+
     let pis_sum: u32 = pis_digits
         .iter()
         .zip(WEIGHTS.iter())
         .map(|(digit, weight)| digit * weight)
         .sum();
-    
+
     let check_digit = 11 - (pis_sum % 11);
-    
+
     if check_digit == 10 || check_digit == 11 {
         0
     } else {
@@ -86,14 +82,14 @@ pub fn is_valid(pis: &str) -> bool {
     if pis.len() != 11 {
         return false;
     }
-    
+
     if !pis.chars().all(|c| c.is_ascii_digit()) {
         return false;
     }
-    
+
     let expected_check_digit = checksum(&pis[..10]);
     let actual_check_digit = pis.chars().nth(10).and_then(|c| c.to_digit(10));
-    
+
     match actual_check_digit {
         Some(digit) => digit == expected_check_digit,
         None => false,
@@ -127,7 +123,7 @@ pub fn format_pis(pis: &str) -> Option<String> {
     if !is_valid(pis) {
         return None;
     }
-    
+
     Some(format!(
         "{}.{}.{}-{}",
         &pis[0..3],
@@ -160,7 +156,7 @@ pub fn generate() -> String {
     let mut rng = rand::thread_rng();
     let base = format!("{:010}", rng.gen_range(0..10000000000u64));
     let check_digit = checksum(&base);
-    
+
     format!("{}{}", base, check_digit)
 }
 
@@ -193,7 +189,7 @@ mod tests {
         assert!(is_valid("17024354753"));
         assert!(is_valid("82178537467"));
         assert!(is_valid("55550207756"));
-        
+
         // Invalid PIS numbers
         assert!(!is_valid("12345678901")); // Wrong check digit
         assert!(!is_valid("123")); // Too short
@@ -216,7 +212,7 @@ mod tests {
             format_pis("17024354753"),
             Some("170.24354.75-3".to_string())
         );
-        
+
         // Invalid inputs
         assert_eq!(format_pis("123"), None);
         assert_eq!(format_pis("12345678901"), None); // Wrong check digit
@@ -238,7 +234,7 @@ mod tests {
         let pis1 = generate();
         let pis2 = generate();
         let pis3 = generate();
-        
+
         // Very unlikely to generate the same PIS twice
         assert!(pis1 != pis2 || pis2 != pis3);
     }
@@ -256,7 +252,7 @@ mod tests {
         let pis = generate();
         let formatted = format_pis(&pis);
         assert!(formatted.is_some());
-        
+
         let cleaned = remove_symbols(&formatted.unwrap());
         assert_eq!(cleaned, pis);
     }

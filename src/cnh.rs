@@ -36,7 +36,10 @@ pub fn is_valid_cnh(cnh: &str) -> bool {
     }
 
     // Reject sequences as "00000000000", "11111111111", etc.
-    if cnh_digits.chars().all(|c| c == cnh_digits.chars().next().unwrap()) {
+    if cnh_digits
+        .chars()
+        .all(|c| c == cnh_digits.chars().next().unwrap())
+    {
         return false;
     }
 
@@ -61,8 +64,8 @@ pub fn is_valid_cnh(cnh: &str) -> bool {
 /// Generates the first verification digit and uses it to verify the 10th digit of the CNH
 fn check_first_verificator(digits: &[u32], first_verificator: u32) -> bool {
     let mut sum = 0;
-    for i in 0..9 {
-        sum += digits[i] * (9 - i as u32);
+    for (i, &digit) in digits.iter().enumerate().take(9) {
+        sum += digit * (9 - i as u32);
     }
 
     let remainder = sum % 11;
@@ -78,8 +81,8 @@ fn check_second_verificator(
     first_verificator: u32,
 ) -> bool {
     let mut sum = 0;
-    for i in 0..9 {
-        sum += digits[i] * (i as u32 + 1);
+    for (i, &digit) in digits.iter().enumerate().take(9) {
+        sum += digit * (i as u32 + 1);
     }
 
     let mut result = sum % 11;
@@ -106,74 +109,74 @@ mod tests {
     #[test]
     fn test_is_valid_cnh() {
         // Invalid: repeated sequence
-        assert_eq!(is_valid_cnh("22222222222"), false);
-        assert_eq!(is_valid_cnh("00000000000"), false);
-        assert_eq!(is_valid_cnh("11111111111"), false);
-        assert_eq!(is_valid_cnh("33333333333"), false);
-        assert_eq!(is_valid_cnh("99999999999"), false);
-        
+        assert!(!is_valid_cnh("22222222222"));
+        assert!(!is_valid_cnh("00000000000"));
+        assert!(!is_valid_cnh("11111111111"));
+        assert!(!is_valid_cnh("33333333333"));
+        assert!(!is_valid_cnh("99999999999"));
+
         // Invalid: contains letters
-        assert_eq!(is_valid_cnh("ABC70304734"), false);
-        assert_eq!(is_valid_cnh("A2C45678901"), false);
-        assert_eq!(is_valid_cnh("1234567890A"), false);
-        
+        assert!(!is_valid_cnh("ABC70304734"));
+        assert!(!is_valid_cnh("A2C45678901"));
+        assert!(!is_valid_cnh("1234567890A"));
+
         // Invalid: wrong length
-        assert_eq!(is_valid_cnh("6619558737912"), false);
-        assert_eq!(is_valid_cnh("123456789"), false);
-        assert_eq!(is_valid_cnh("1234567890"), false);
-        assert_eq!(is_valid_cnh("123456789012"), false);
-        
+        assert!(!is_valid_cnh("6619558737912"));
+        assert!(!is_valid_cnh("123456789"));
+        assert!(!is_valid_cnh("1234567890"));
+        assert!(!is_valid_cnh("123456789012"));
+
         // Valid with formatting
-        assert_eq!(is_valid_cnh("097703047-34"), true);
-        assert_eq!(is_valid_cnh("987654321-00"), true);
-        
+        assert!(is_valid_cnh("097703047-34"));
+        assert!(is_valid_cnh("987654321-00"));
+
         // Valid without formatting
-        assert_eq!(is_valid_cnh("09770304734"), true);
-        assert_eq!(is_valid_cnh("98765432100"), true);
-        
+        assert!(is_valid_cnh("09770304734"));
+        assert!(is_valid_cnh("98765432100"));
+
         // Additional test cases - invalid checksum
-        assert_eq!(is_valid_cnh("12345678901"), false);
-        
+        assert!(!is_valid_cnh("12345678901"));
+
         // Edge cases
-        assert_eq!(is_valid_cnh(""), false);
-        assert_eq!(is_valid_cnh("           "), false);
-        assert_eq!(is_valid_cnh("---"), false);
+        assert!(!is_valid_cnh(""));
+        assert!(!is_valid_cnh("           "));
+        assert!(!is_valid_cnh("---"));
     }
 
     #[test]
     fn test_check_first_verificator() {
         // Test with valid CNH: 09770304734
         let digits = vec![0, 9, 7, 7, 0, 3, 0, 4, 7, 3, 4];
-        assert_eq!(check_first_verificator(&digits, 3), true);
-        
+        assert!(check_first_verificator(&digits, 3));
+
         // Test with invalid first verificator
-        assert_eq!(check_first_verificator(&digits, 5), false);
+        assert!(!check_first_verificator(&digits, 5));
     }
 
     #[test]
     fn test_check_second_verificator() {
         // Test with valid CNH: 09770304734
         let digits = vec![0, 9, 7, 7, 0, 3, 0, 4, 7, 3, 4];
-        assert_eq!(check_second_verificator(&digits, 4, 3), true);
-        
+        assert!(check_second_verificator(&digits, 4, 3));
+
         // Test with invalid second verificator
-        assert_eq!(check_second_verificator(&digits, 5, 3), false);
+        assert!(!check_second_verificator(&digits, 5, 3));
     }
 
     #[test]
     fn test_is_valid_cnh_symbols_removed() {
         // Test that various symbols are removed
-        assert_eq!(is_valid_cnh("097-703-047-34"), true);
-        assert_eq!(is_valid_cnh("097.703.047.34"), true);
-        assert_eq!(is_valid_cnh("097 703 047 34"), true);
-        assert_eq!(is_valid_cnh("(097)703-047-34"), true);
+        assert!(is_valid_cnh("097-703-047-34"));
+        assert!(is_valid_cnh("097.703.047.34"));
+        assert!(is_valid_cnh("097 703 047 34"));
+        assert!(is_valid_cnh("(097)703-047-34"));
     }
 
     #[test]
     fn test_is_valid_cnh_mixed_invalid() {
         // Mixed letters and numbers
-        assert_eq!(is_valid_cnh("0977O3O4734"), false); // O instead of 0
-        assert_eq!(is_valid_cnh("097703O4734"), false);
+        assert!(!is_valid_cnh("0977O3O4734")); // O instead of 0
+        assert!(!is_valid_cnh("097703O4734"));
     }
 
     #[test]

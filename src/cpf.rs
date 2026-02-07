@@ -235,7 +235,7 @@ pub fn compute_checksum(basenum: &str) -> String {
     let digit1 = hashdigit(basenum, 10);
     let with_digit1 = format!("{}{}", basenum, digit1);
     let digit2 = hashdigit(&with_digit1, 11);
-    
+
     format!("{}{}", digit1, digit2)
 }
 
@@ -246,7 +246,7 @@ fn is_blacklisted(input: &str) -> bool {
 fn is_valid_checksum(input: &str) -> bool {
     let digit1 = hashdigit(input, 10);
     let digit2 = hashdigit(input, 11);
-    
+
     input.chars().nth(9).unwrap().to_digit(10).unwrap() == digit1 as u32
         && input.chars().nth(10).unwrap().to_digit(10).unwrap() == digit2 as u32
 }
@@ -294,46 +294,46 @@ mod tests {
     #[test]
     fn test_validate() {
         // Valid CPFs
-        assert_eq!(validate("52513127765"), true);
-        assert_eq!(validate("52599927765"), true);
-        assert_eq!(validate("82178537464"), true);
-        assert_eq!(validate("55550207753"), true);
+        assert!(validate("52513127765"));
+        assert!(validate("52599927765"));
+        assert!(validate("82178537464"));
+        assert!(validate("55550207753"));
 
         // Invalid CPFs
-        assert_eq!(validate("00000000000"), false);
-        assert_eq!(validate("11111111111"), false);
-        assert_eq!(validate("12345678901"), false);
-        assert_eq!(validate("123456789"), false);
-        assert_eq!(validate("12345678901a"), false);
+        assert!(!validate("00000000000"));
+        assert!(!validate("11111111111"));
+        assert!(!validate("12345678901"));
+        assert!(!validate("123456789"));
+        assert!(!validate("12345678901a"));
     }
 
     #[test]
     fn test_is_valid() {
         // Valid CPFs
-        assert_eq!(is_valid("96271845860"), true);
-        assert_eq!(is_valid("40364478829"), true);
-        assert_eq!(is_valid("11144477735"), true);
-        assert_eq!(is_valid("82178537464"), true);
-        assert_eq!(is_valid("55550207753"), true);
+        assert!(is_valid("96271845860"));
+        assert!(is_valid("40364478829"));
+        assert!(is_valid("11144477735"));
+        assert!(is_valid("82178537464"));
+        assert!(is_valid("55550207753"));
 
         // Invalid CPFs - wrong length
-        assert_eq!(is_valid("1"), false);
-        assert_eq!(is_valid("123456789"), false);
-        assert_eq!(is_valid("123456789012"), false);
+        assert!(!is_valid("1"));
+        assert!(!is_valid("123456789"));
+        assert!(!is_valid("123456789012"));
 
         // Invalid CPFs - non-digits
-        assert_eq!(is_valid("1112223334-"), false);
-        assert_eq!(is_valid("111.444.777-35"), false);
+        assert!(!is_valid("1112223334-"));
+        assert!(!is_valid("111.444.777-35"));
 
         // Invalid CPFs - blacklisted sequences
         for input in BLACKLIST.iter() {
-            assert_eq!(is_valid(input), false);
+            assert!(!is_valid(input));
         }
 
         // Invalid CPFs - wrong checksum
-        assert_eq!(is_valid("11144477705"), false);
-        assert_eq!(is_valid("11144477732"), false);
-        assert_eq!(is_valid("11111111215"), false);
+        assert!(!is_valid("11144477705"));
+        assert!(!is_valid("11144477732"));
+        assert!(!is_valid("11111111215"));
     }
 
     #[test]
@@ -367,33 +367,33 @@ mod tests {
 
     #[test]
     fn test_is_blacklisted() {
-        assert_eq!(is_blacklisted("00000000000"), true);
-        assert_eq!(is_blacklisted("11111111111"), true);
-        assert_eq!(is_blacklisted("99999999999"), true);
-        assert_eq!(is_blacklisted("12345678901"), false);
+        assert!(is_blacklisted("00000000000"));
+        assert!(is_blacklisted("11111111111"));
+        assert!(is_blacklisted("99999999999"));
+        assert!(!is_blacklisted("12345678901"));
     }
 
     #[test]
     fn test_is_valid_checksum() {
         // Valid checksums
-        assert_eq!(is_valid_checksum("11144477735"), true);
-        assert_eq!(is_valid_checksum("96271845860"), true);
-        
+        assert!(is_valid_checksum("11144477735"));
+        assert!(is_valid_checksum("96271845860"));
+
         // Invalid checksums
-        assert_eq!(is_valid_checksum("11144477705"), false);
-        assert_eq!(is_valid_checksum("11144477732"), false);
+        assert!(!is_valid_checksum("11144477705"));
+        assert!(!is_valid_checksum("11144477732"));
     }
 
     #[test]
     fn test_edge_cases() {
         // Empty string
-        assert_eq!(is_valid(""), false);
-        
+        assert!(!is_valid(""));
+
         // Special characters
-        assert_eq!(is_valid("!@#$%^&*()_"), false);
-        
+        assert!(!is_valid("!@#$%^&*()_"));
+
         // Mixed valid and invalid
-        assert_eq!(is_valid("111444777a5"), false);
+        assert!(!is_valid("111444777a5"));
     }
 
     #[test]
@@ -410,7 +410,7 @@ mod tests {
         let cpf1 = generate();
         let cpf2 = generate();
         let cpf3 = generate();
-        
+
         // While theoretically they could be the same, the probability is very low
         // Just check they're all valid
         assert!(is_valid(&cpf1));
@@ -418,4 +418,3 @@ mod tests {
         assert!(is_valid(&cpf3));
     }
 }
-

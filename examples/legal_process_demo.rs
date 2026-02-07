@@ -29,28 +29,36 @@ fn main() {
         "45532346920234025107",
         "2314194-58.2005.5.07.0079",
     ];
-    
+
     for id in valid_ids {
         let is_valid = legal_process::is_valid(id);
-        println!("   {} -> {}", id, if is_valid { "✓ Valid" } else { "✗ Invalid" });
+        println!(
+            "   {} -> {}",
+            id,
+            if is_valid { "✓ Valid" } else { "✗ Invalid" }
+        );
     }
-    
+
     println!("\n   Invalid examples:");
     let invalid_ids = vec![
         "00000000000000000000",
         "123",
         "10188748220234018201", // wrong checksum
     ];
-    
+
     for id in invalid_ids {
         let is_valid = legal_process::is_valid(id);
-        println!("   {} -> {}", id, if is_valid { "✓ Valid" } else { "✗ Invalid" });
+        println!(
+            "   {} -> {}",
+            id,
+            if is_valid { "✓ Valid" } else { "✗ Invalid" }
+        );
     }
     println!();
 
     // Example 4: Generate random legal process IDs
     println!("4. Generate Random Legal Process IDs:");
-    
+
     // Generate with current year and random orgao
     match legal_process::generate(None, None) {
         Some(id) => {
@@ -59,7 +67,7 @@ fn main() {
         }
         None => println!("   Failed to generate ID"),
     }
-    
+
     // Generate for specific organs
     for orgao in [1, 4, 5, 8] {
         match legal_process::generate(None, Some(orgao)) {
@@ -83,7 +91,7 @@ fn main() {
     println!("     │     └──────────────── Check digits (2 digits)");
     println!("     └────────────────────── Sequential number (7 digits)");
     println!();
-    
+
     println!("6. Legal Organs (Justiça):");
     let organs = vec![
         (1, "Federal"),
@@ -96,7 +104,7 @@ fn main() {
         (8, "Estadual (State) - Additional"),
         (9, "Outros (Others)"),
     ];
-    
+
     for (code, name) in organs {
         println!("   {} - {}", code, name);
     }

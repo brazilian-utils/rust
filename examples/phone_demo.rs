@@ -5,12 +5,8 @@ fn main() {
 
     // Example 1: Remove symbols
     println!("1. Remove Symbols:");
-    let formatted_phones = vec![
-        "(11)99402-9275",
-        "+55 11 9 9402-9275",
-        "16 3501-4415",
-    ];
-    
+    let formatted_phones = vec!["(11)99402-9275", "+55 11 9 9402-9275", "16 3501-4415"];
+
     for phone_number in formatted_phones {
         let clean = phone::remove_symbols(phone_number);
         println!("   {} -> {}", phone_number, clean);
@@ -19,31 +15,39 @@ fn main() {
 
     // Example 2: Validate phone numbers
     println!("2. Validate Phone Numbers:");
-    
+
     println!("   Mobile numbers:");
-    let mobile_numbers = vec![
-        "11994029275",
-        "21987654321",
-        "85912345678",
-    ];
-    
+    let mobile_numbers = vec!["11994029275", "21987654321", "85912345678"];
+
     for number in mobile_numbers {
         let is_valid = phone::is_valid(number, Some("mobile"));
-        println!("      {} -> {}", number, if is_valid { "✓ Valid mobile" } else { "✗ Invalid" });
+        println!(
+            "      {} -> {}",
+            number,
+            if is_valid {
+                "✓ Valid mobile"
+            } else {
+                "✗ Invalid"
+            }
+        );
     }
-    
+
     println!("\n   Landline numbers:");
-    let landline_numbers = vec![
-        "1635014415",
-        "1133334444",
-        "8532221111",
-    ];
-    
+    let landline_numbers = vec!["1635014415", "1133334444", "8532221111"];
+
     for number in landline_numbers {
         let is_valid = phone::is_valid(number, Some("landline"));
-        println!("      {} -> {}", number, if is_valid { "✓ Valid landline" } else { "✗ Invalid" });
+        println!(
+            "      {} -> {}",
+            number,
+            if is_valid {
+                "✓ Valid landline"
+            } else {
+                "✗ Invalid"
+            }
+        );
     }
-    
+
     println!("\n   Invalid examples:");
     let invalid_numbers = vec![
         ("123", "Too short"),
@@ -51,10 +55,15 @@ fn main() {
         ("1665014415", "Invalid landline prefix"),
         ("119940292751", "Too long"),
     ];
-    
+
     for (number, reason) in invalid_numbers {
         let is_valid = phone::is_valid(number, None);
-        println!("      {} ({}) -> {}", number, reason, if is_valid { "✓ Valid" } else { "✗ Invalid" });
+        println!(
+            "      {} ({}) -> {}",
+            number,
+            reason,
+            if is_valid { "✓ Valid" } else { "✗ Invalid" }
+        );
     }
     println!();
 
@@ -66,7 +75,7 @@ fn main() {
         ("21987654321", "Mobile"),
         ("1133334444", "Landline"),
     ];
-    
+
     for (number, type_name) in numbers_to_format {
         match phone::format_phone(number) {
             Some(formatted) => println!("   {} ({}) -> {}", number, type_name, formatted),
@@ -83,7 +92,7 @@ fn main() {
         "+5511994029275",
         "11994029275", // No code to remove
     ];
-    
+
     for number in international_numbers {
         let cleaned = phone::remove_international_dialing_code(number);
         println!("   {} -> {}", number, cleaned);
@@ -92,26 +101,30 @@ fn main() {
 
     // Example 5: Generate random phone numbers
     println!("5. Generate Random Phone Numbers:");
-    
+
     println!("   Mobile numbers:");
     for _ in 0..3 {
         let mobile = phone::generate(Some("mobile"));
         let formatted = phone::format_phone(&mobile).unwrap();
         println!("      {}", formatted);
     }
-    
+
     println!("\n   Landline numbers:");
     for _ in 0..3 {
         let landline = phone::generate(Some("landline"));
         let formatted = phone::format_phone(&landline).unwrap();
         println!("      {}", formatted);
     }
-    
+
     println!("\n   Random type:");
     for _ in 0..3 {
         let phone_number = phone::generate(None);
         let formatted = phone::format_phone(&phone_number).unwrap();
-        let phone_type = if phone_number.len() == 11 { "mobile" } else { "landline" };
+        let phone_type = if phone_number.len() == 11 {
+            "mobile"
+        } else {
+            "landline"
+        };
         println!("      {} ({})", formatted, phone_type);
     }
     println!();
@@ -148,7 +161,7 @@ fn main() {
         (81, "Recife - PE"),
         (85, "Fortaleza - CE"),
     ];
-    
+
     for (code, city) in ddd_examples {
         println!("   {} - {}", code, city);
     }

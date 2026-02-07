@@ -201,10 +201,10 @@ pub fn get_address_from_cep(
     raise_exceptions: bool,
 ) -> Result<Option<Address>, Box<dyn Error>> {
     let base_api_url = "https://viacep.com.br/ws/{}/json/";
-    
+
     let clean_cep = remove_symbols(cep);
     let cep_is_valid = is_valid(&clean_cep);
-    
+
     if !cep_is_valid {
         if raise_exceptions {
             return Err(Box::new(InvalidCEP {
@@ -213,13 +213,13 @@ pub fn get_address_from_cep(
         }
         return Ok(None);
     }
-    
+
     let url = base_api_url.replace("{}", &clean_cep);
-    
+
     match reqwest::blocking::get(&url) {
         Ok(response) => {
             let json: serde_json::Value = response.json()?;
-            
+
             if json.get("erro").is_some() {
                 if raise_exceptions {
                     return Err(Box::new(CEPNotFound {
@@ -228,11 +228,11 @@ pub fn get_address_from_cep(
                 }
                 return Ok(None);
             }
-            
+
             let address: Address = serde_json::from_value(json)?;
             Ok(Some(address))
         }
-        Err(e) => {
+        Err(_e) => {
             if raise_exceptions {
                 return Err(Box::new(CEPNotFound {
                     message: cep.to_string(),
@@ -289,35 +289,34 @@ pub fn get_cep_information_from_address(
 ) -> Result<Option<Vec<Address>>, Box<dyn Error>> {
     // Valid Brazilian state abbreviations
     const VALID_UFS: &[&str] = &[
-        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-        "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-        "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB",
+        "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
     ];
-    
+
     let federal_unit_upper = federal_unit.to_uppercase();
-    
+
     if !VALID_UFS.contains(&federal_unit_upper.as_str()) {
         if raise_exceptions {
             return Err(format!("Invalid UF: {}", federal_unit).into());
         }
         return Ok(None);
     }
-    
+
     let base_api_url = "https://viacep.com.br/ws/{}/{}/{}/json/";
-    
+
     // Normalize strings: remove accents and replace spaces with %20
     let parsed_city = normalize_string(city);
     let parsed_street = normalize_string(street);
-    
+
     let url = base_api_url
         .replace("{}", &federal_unit_upper)
         .replacen("{}", &parsed_city, 1)
         .replacen("{}", &parsed_street, 1);
-    
+
     match reqwest::blocking::get(&url) {
         Ok(response) => {
             let addresses: Vec<Address> = response.json()?;
-            
+
             if addresses.is_empty() {
                 if raise_exceptions {
                     return Err(Box::new(CEPNotFound {
@@ -326,10 +325,10 @@ pub fn get_cep_information_from_address(
                 }
                 return Ok(None);
             }
-            
+
             Ok(Some(addresses))
         }
-        Err(e) => {
+        Err(_e) => {
             if raise_exceptions {
                 return Err(Box::new(CEPNotFound {
                     message: format!("{} - {} - {}", federal_unit, city, street),
@@ -346,7 +345,7 @@ pub fn get_cep_information_from_address(
 /// Normalizes a string by removing accents and replacing spaces with %20
 fn normalize_string(s: &str) -> String {
     use unicode_normalization::UnicodeNormalization;
-    
+
     s.nfd()
         .filter(|c| !unicode_normalization::char::is_combining_mark(*c))
         .collect::<String>()
@@ -373,21 +372,21 @@ mod tests {
     #[test]
     fn test_is_valid() {
         // When CEP's len is different of 8, returns False
-        assert_eq!(is_valid("1"), false);
-        assert_eq!(is_valid("12345"), false);
-        assert_eq!(is_valid("123456789"), false);
+        assert!(!is_valid("1"));
+        assert!(!is_valid("12345"));
+        assert!(!is_valid("123456789"));
 
         // When CEP does not contain only digits, returns False
-        assert_eq!(is_valid("1234567-"), false);
-        assert_eq!(is_valid("abcdefgh"), false);
-        assert_eq!(is_valid("1234567a"), false);
+        assert!(!is_valid("1234567-"));
+        assert!(!is_valid("abcdefgh"));
+        assert!(!is_valid("1234567a"));
 
         // When CEP is valid
-        assert_eq!(is_valid("99999999"), true);
-        assert_eq!(is_valid("88390000"), true);
-        assert_eq!(is_valid("01310200"), true);
-        assert_eq!(is_valid("12345678"), true);
-        assert_eq!(is_valid("00000000"), true);
+        assert!(is_valid("99999999"));
+        assert!(is_valid("88390000"));
+        assert!(is_valid("01310200"));
+        assert!(is_valid("12345678"));
+        assert!(is_valid("00000000"));
     }
 
     #[test]
@@ -397,7 +396,7 @@ mod tests {
         assert_eq!(format_cep("12345678"), Some("12345-678".to_string()));
         assert_eq!(format_cep("00000000"), Some("00000-000".to_string()));
         assert_eq!(format_cep("99999999"), Some("99999-999".to_string()));
-        
+
         // Invalid CEPs should return None
         assert_eq!(format_cep("12345"), None);
         assert_eq!(format_cep("013102009"), None);
@@ -423,11 +422,11 @@ mod tests {
         assert_eq!(normalize_string("São Paulo"), "Sao%20Paulo");
         assert_eq!(normalize_string("Brasília"), "Brasilia");
         assert_eq!(normalize_string("Goiânia"), "Goiania");
-        
+
         // Test space to %20 conversion
         assert_eq!(normalize_string("Belo Horizonte"), "Belo%20Horizonte");
         assert_eq!(normalize_string("Rio de Janeiro"), "Rio%20de%20Janeiro");
-        
+
         // Test combined
         assert_eq!(normalize_string("João Pessoa"), "Joao%20Pessoa");
     }
@@ -447,13 +446,13 @@ mod tests {
     #[test]
     fn test_is_valid_edge_cases() {
         // Empty string
-        assert_eq!(is_valid(""), false);
-        
+        assert!(!is_valid(""));
+
         // Only zeros
-        assert_eq!(is_valid("00000000"), true);
-        
+        assert!(is_valid("00000000"));
+
         // Only nines
-        assert_eq!(is_valid("99999999"), true);
+        assert!(is_valid("99999999"));
     }
 
     #[test]

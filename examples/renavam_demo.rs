@@ -1,7 +1,9 @@
 use brazilian_utils::renavam::{calculate_checksum, generate, is_valid};
 
 fn main() {
-    println!("=== Brazilian RENAVAM (Registro Nacional de Veículos Automotores) Utilities Demo ===\n");
+    println!(
+        "=== Brazilian RENAVAM (Registro Nacional de Veículos Automotores) Utilities Demo ===\n"
+    );
 
     // 1. Validate RENAVAM Numbers
     println!("1. Validate RENAVAM Numbers:");
@@ -31,7 +33,10 @@ fn main() {
     let bases = vec!["8676959730", "0123456789", "9876543210"];
     for base in &bases {
         let check = calculate_checksum(base);
-        println!("   Base: {} -> Check digit: {} -> Full: {}{}", base, check, base, check);
+        println!(
+            "   Base: {} -> Check digit: {} -> Full: {}{}",
+            base, check, base, check
+        );
     }
 
     // 3. Generate Random Valid RENAVAM Numbers
@@ -60,26 +65,41 @@ fn main() {
     println!("   - Sum all products");
     println!("   - Calculate: 11 - (sum % 11)");
     println!("   - If result is 10 or 11, use 0");
-    
+
     let example_base = "8676959730";
     let example_check = calculate_checksum(example_base);
-    println!("\n   Example: Base {} -> Check digit: {} -> Full RENAVAM: {}{}", 
-             example_base, example_check, example_base, example_check);
+    println!(
+        "\n   Example: Base {} -> Check digit: {} -> Full RENAVAM: {}{}",
+        example_base, example_check, example_base, example_check
+    );
 
     // 6. Complete Workflow
     println!("\n6. Complete Workflow:");
     let test_renavam = "86769597308";
     println!("   Step 1: RENAVAM: {}", test_renavam);
-    println!("   Step 2: Validate: {} {}", 
-             test_renavam,
-             if is_valid(test_renavam) { "✓ Valid" } else { "✗ Invalid" });
+    println!(
+        "   Step 2: Validate: {} {}",
+        test_renavam,
+        if is_valid(test_renavam) {
+            "✓ Valid"
+        } else {
+            "✗ Invalid"
+        }
+    );
     println!("   Step 3: Extract base: {}", &test_renavam[..10]);
-    println!("   Step 4: Calculate check: {}", calculate_checksum(&test_renavam[..10]));
-    println!("   Step 5: Verify: {} {}",
-             test_renavam,
-             if calculate_checksum(&test_renavam[..10]).to_string() == test_renavam.chars().last().unwrap().to_string() {
-                 "✓ Check digit matches"
-             } else {
-                 "✗ Check digit mismatch"
-             });
+    println!(
+        "   Step 4: Calculate check: {}",
+        calculate_checksum(&test_renavam[..10])
+    );
+    println!(
+        "   Step 5: Verify: {} {}",
+        test_renavam,
+        if calculate_checksum(&test_renavam[..10]).to_string()
+            == test_renavam.chars().last().unwrap().to_string()
+        {
+            "✓ Check digit matches"
+        } else {
+            "✗ Check digit mismatch"
+        }
+    );
 }

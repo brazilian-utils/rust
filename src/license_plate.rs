@@ -1,7 +1,6 @@
 /// License plate (placa de veículo) utilities for Brazilian vehicle plates.
 ///
 /// Supports both old format (LLLNNNN) and Mercosul format (LLLNLNN).
-
 use rand::Rng;
 
 /// Removes the dash (-) symbol from a license plate string.
@@ -56,13 +55,13 @@ pub fn remove_symbols(license_plate: &str) -> String {
 /// ```
 pub fn format_license_plate(license_plate: &str) -> Option<String> {
     let license_plate = license_plate.to_uppercase();
-    
+
     if is_valid_old_format(&license_plate) {
         return Some(format!("{}-{}", &license_plate[0..3], &license_plate[3..]));
     } else if is_valid_mercosul(&license_plate) {
         return Some(license_plate);
     }
-    
+
     None
 }
 
@@ -77,18 +76,18 @@ pub fn format_license_plate(license_plate: &str) -> Option<String> {
 /// `true` if the plate matches the old format, `false` otherwise.
 fn is_valid_old_format(license_plate: &str) -> bool {
     let plate = license_plate.trim().to_uppercase();
-    
+
     if plate.len() != 7 {
         return false;
     }
-    
+
     let chars: Vec<char> = plate.chars().collect();
-    
+
     // First 3 must be letters
     if !chars[0..3].iter().all(|c| c.is_ascii_alphabetic()) {
         return false;
     }
-    
+
     // Last 4 must be digits
     chars[3..7].iter().all(|c| c.is_ascii_digit())
 }
@@ -104,28 +103,28 @@ fn is_valid_old_format(license_plate: &str) -> bool {
 /// `true` if the plate matches the Mercosul format, `false` otherwise.
 fn is_valid_mercosul(license_plate: &str) -> bool {
     let plate = license_plate.trim().to_uppercase();
-    
+
     if plate.len() != 7 {
         return false;
     }
-    
+
     let chars: Vec<char> = plate.chars().collect();
-    
+
     // Positions 0, 1, 2 must be letters
     if !chars[0..3].iter().all(|c| c.is_ascii_alphabetic()) {
         return false;
     }
-    
+
     // Position 3 must be digit
     if !chars[3].is_ascii_digit() {
         return false;
     }
-    
+
     // Position 4 must be letter
     if !chars[4].is_ascii_alphabetic() {
         return false;
     }
-    
+
     // Positions 5, 6 must be digits
     chars[5..7].iter().all(|c| c.is_ascii_digit())
 }
@@ -138,7 +137,7 @@ fn is_valid_mercosul(license_plate: &str) -> bool {
 ///
 /// * `license_plate` - The license plate number to be validated.
 /// * `format` - Optional format type: "old_format" or "mercosul".
-///              If not specified, checks for either format.
+///   If not specified, checks for either format.
 ///
 /// # Returns
 ///
@@ -193,11 +192,11 @@ pub fn get_format(license_plate: &str) -> Option<String> {
     if is_valid_old_format(license_plate) {
         return Some("LLLNNNN".to_string());
     }
-    
+
     if is_valid_mercosul(license_plate) {
         return Some("LLLNLNN".to_string());
     }
-    
+
     None
 }
 
@@ -228,15 +227,15 @@ pub fn convert_to_mercosul(license_plate: &str) -> Option<String> {
     if !is_valid_old_format(license_plate) {
         return None;
     }
-    
+
     let mut chars: Vec<char> = license_plate.to_uppercase().chars().collect();
-    
+
     // Convert the 5th character (second digit, position 4) to a letter
     // 0->A, 1->B, ..., 9->J
     if let Some(digit) = chars[4].to_digit(10) {
         chars[4] = char::from_u32('A' as u32 + digit).unwrap();
     }
-    
+
     Some(chars.into_iter().collect())
 }
 
@@ -247,8 +246,8 @@ pub fn convert_to_mercosul(license_plate: &str) -> Option<String> {
 /// # Arguments
 ///
 /// * `format` - The desired format for the license plate.
-///              "LLLNNNN" for the old pattern or "LLLNLNN" for the Mercosul one.
-///              Default is "LLLNLNN".
+///   "LLLNNNN" for the old pattern or "LLLNLNN" for the Mercosul one.
+///   Default is "LLLNLNN".
 ///
 /// # Returns
 ///
@@ -273,14 +272,14 @@ pub fn convert_to_mercosul(license_plate: &str) -> Option<String> {
 /// ```
 pub fn generate(format: Option<&str>) -> Option<String> {
     let format = format.unwrap_or("LLLNLNN").to_uppercase();
-    
+
     if format != "LLLNLNN" && format != "LLLNNNN" {
         return None;
     }
-    
+
     let mut rng = rand::thread_rng();
     let mut result = String::new();
-    
+
     for ch in format.chars() {
         if ch == 'L' {
             // Random uppercase letter A-Z
@@ -292,7 +291,7 @@ pub fn generate(format: Option<&str>) -> Option<String> {
             result.push_str(&digit.to_string());
         }
     }
-    
+
     Some(result)
 }
 
@@ -326,14 +325,8 @@ mod tests {
 
     #[test]
     fn test_format_license_plate_mercosul() {
-        assert_eq!(
-            format_license_plate("ABC1D23"),
-            Some("ABC1D23".to_string())
-        );
-        assert_eq!(
-            format_license_plate("abc1e34"),
-            Some("ABC1E34".to_string())
-        );
+        assert_eq!(format_license_plate("ABC1D23"), Some("ABC1D23".to_string()));
+        assert_eq!(format_license_plate("abc1e34"), Some("ABC1E34".to_string()));
     }
 
     #[test]
@@ -349,7 +342,7 @@ mod tests {
         assert!(is_valid("ABC1234", Some("old_format")));
         assert!(is_valid("XYZ9876", Some("old_format")));
         assert!(is_valid("abc1234", Some("old_format")));
-        
+
         assert!(!is_valid("ABC1D23", Some("old_format")));
         assert!(!is_valid("ABC123", Some("old_format")));
         assert!(!is_valid("ABCD1234", Some("old_format")));
@@ -360,7 +353,7 @@ mod tests {
         assert!(is_valid("ABC1D23", Some("mercosul")));
         assert!(is_valid("XYZ9A99", Some("mercosul")));
         assert!(is_valid("abc1e34", Some("mercosul")));
-        
+
         assert!(!is_valid("ABC1234", Some("mercosul")));
         assert!(!is_valid("ABC12D3", Some("mercosul")));
         assert!(!is_valid("ABCD123", Some("mercosul")));
@@ -372,7 +365,7 @@ mod tests {
         assert!(is_valid("ABC1D23", None));
         assert!(is_valid("xyz9876", None));
         assert!(is_valid("abc1e34", None));
-        
+
         assert!(!is_valid("ABC123", None));
         assert!(!is_valid("ABCD1234", None));
         assert!(!is_valid("", None));
@@ -384,7 +377,7 @@ mod tests {
         assert_eq!(get_format("abc1234"), Some("LLLNNNN".to_string()));
         assert_eq!(get_format("ABC1D23"), Some("LLLNLNN".to_string()));
         assert_eq!(get_format("abc1e34"), Some("LLLNLNN".to_string()));
-        
+
         assert_eq!(get_format("ABC123"), None);
         assert_eq!(get_format("ABCD1234"), None);
     }
@@ -436,7 +429,7 @@ mod tests {
         let plate1 = generate(None).unwrap();
         let plate2 = generate(None).unwrap();
         let plate3 = generate(None).unwrap();
-        
+
         // Very unlikely to generate the same plate twice
         assert!(plate1 != plate2 || plate2 != plate3);
     }

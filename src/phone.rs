@@ -1,7 +1,6 @@
 /// Phone (telefone) utilities for Brazilian phone numbers.
 ///
 /// Supports both mobile and landline phone numbers.
-
 use rand::Rng;
 
 /// Removes common symbols from a Brazilian phone number string.
@@ -50,24 +49,24 @@ fn is_valid_mobile(phone_number: &str) -> bool {
     if phone_number.len() != 11 {
         return false;
     }
-    
+
     let chars: Vec<char> = phone_number.chars().collect();
-    
+
     // Check if all characters are digits
     if !chars.iter().all(|c| c.is_ascii_digit()) {
         return false;
     }
-    
+
     // First two digits (DDD) must be 1-9
     if chars[0] < '1' || chars[0] > '9' || chars[1] < '1' || chars[1] > '9' {
         return false;
     }
-    
+
     // Third digit must be 9 (mobile identifier)
     if chars[2] != '9' {
         return false;
     }
-    
+
     true
 }
 
@@ -89,24 +88,24 @@ fn is_valid_landline(phone_number: &str) -> bool {
     if phone_number.len() != 10 {
         return false;
     }
-    
+
     let chars: Vec<char> = phone_number.chars().collect();
-    
+
     // Check if all characters are digits
     if !chars.iter().all(|c| c.is_ascii_digit()) {
         return false;
     }
-    
+
     // First two digits (DDD) must be 1-9
     if chars[0] < '1' || chars[0] > '9' || chars[1] < '1' || chars[1] > '9' {
         return false;
     }
-    
+
     // Third digit must be 2-5 (landline identifier)
     if chars[2] < '2' || chars[2] > '5' {
         return false;
     }
-    
+
     true
 }
 
@@ -117,9 +116,9 @@ fn is_valid_landline(phone_number: &str) -> bool {
 /// # Arguments
 ///
 /// * `phone_number` - The phone number to validate. Only digits, without country code.
-///                    It should include two digits DDD (area code).
+///   It should include two digits DDD (area code).
 /// * `phone_type` - Optional phone type: "mobile" or "landline".
-///                  If not specified, checks for either format.
+///   If not specified, checks for either format.
 ///
 /// # Returns
 ///
@@ -178,11 +177,11 @@ pub fn format_phone(phone: &str) -> Option<String> {
     if !is_valid(phone, None) {
         return None;
     }
-    
+
     let ddd = &phone[0..2];
     let phone_number = &phone[2..];
     let len = phone_number.len();
-    
+
     Some(format!(
         "({}){}-{}",
         ddd,
@@ -210,7 +209,7 @@ fn generate_mobile_phone() -> String {
     let mut rng = rand::thread_rng();
     let ddd = generate_ddd_number();
     let client_number: String = (0..8).map(|_| rng.gen_range(0..=9).to_string()).collect();
-    
+
     format!("{}9{}", ddd, client_number)
 }
 
@@ -224,7 +223,7 @@ fn generate_landline_phone() -> String {
     let ddd = generate_ddd_number();
     let first_digit = rng.gen_range(2..=5);
     let remaining = format!("{:07}", rng.gen_range(0..=9999999));
-    
+
     format!("{}{}{}", ddd, first_digit, remaining)
 }
 
@@ -233,7 +232,7 @@ fn generate_landline_phone() -> String {
 /// # Arguments
 ///
 /// * `phone_type` - Optional type: "landline" or "mobile".
-///                  If not specified, generates either type randomly.
+///   If not specified, generates either type randomly.
 ///
 /// # Returns
 ///
@@ -292,16 +291,14 @@ pub fn generate(phone_type: Option<&str>) -> String {
 /// ```
 pub fn remove_international_dialing_code(phone_number: &str) -> String {
     let cleaned = phone_number.replace(" ", "");
-    
+
     // Check if starts with +55 or 55 and has more than 11 digits
-    if cleaned.len() > 11 {
-        if cleaned.starts_with("+55") {
-            return cleaned.replacen("55", "", 1);
-        } else if cleaned.starts_with("55") {
-            return cleaned.replacen("55", "", 1);
-        }
+    if cleaned.len() > 11
+        && (cleaned.starts_with("+55") || cleaned.starts_with("55"))
+    {
+        return cleaned.replacen("55", "", 1);
     }
-    
+
     phone_number.to_string()
 }
 
@@ -322,7 +319,7 @@ mod tests {
         assert!(is_valid("11994029275", Some("mobile")));
         assert!(is_valid("21987654321", Some("mobile")));
         assert!(is_valid("85912345678", Some("mobile")));
-        
+
         assert!(!is_valid("1635014415", Some("mobile")));
         assert!(!is_valid("11894029275", Some("mobile"))); // 8 instead of 9
         assert!(!is_valid("1194029275", Some("mobile"))); // Too short
@@ -334,7 +331,7 @@ mod tests {
         assert!(is_valid("1635014415", Some("landline")));
         assert!(is_valid("1133334444", Some("landline")));
         assert!(is_valid("8532221111", Some("landline")));
-        
+
         assert!(!is_valid("11994029275", Some("landline")));
         assert!(!is_valid("1635014415", Some("mobile")));
         assert!(!is_valid("163501441", Some("landline"))); // Too short
@@ -348,7 +345,7 @@ mod tests {
         assert!(is_valid("1635014415", None));
         assert!(is_valid("21987654321", None));
         assert!(is_valid("1133334444", None));
-        
+
         assert!(!is_valid("123", None));
         assert!(!is_valid("11894029275", None));
         assert!(!is_valid("1665014415", None));
@@ -356,10 +353,19 @@ mod tests {
 
     #[test]
     fn test_format_phone() {
-        assert_eq!(format_phone("11994029275"), Some("(11)99402-9275".to_string()));
-        assert_eq!(format_phone("1635014415"), Some("(16)3501-4415".to_string()));
-        assert_eq!(format_phone("21987654321"), Some("(21)98765-4321".to_string()));
-        
+        assert_eq!(
+            format_phone("11994029275"),
+            Some("(11)99402-9275".to_string())
+        );
+        assert_eq!(
+            format_phone("1635014415"),
+            Some("(16)3501-4415".to_string())
+        );
+        assert_eq!(
+            format_phone("21987654321"),
+            Some("(21)98765-4321".to_string())
+        );
+
         assert_eq!(format_phone("333333"), None);
         assert_eq!(format_phone("123"), None);
     }
@@ -390,24 +396,42 @@ mod tests {
         let phone1 = generate(None);
         let phone2 = generate(None);
         let phone3 = generate(None);
-        
+
         // Very unlikely to generate the same phone twice
         assert!(phone1 != phone2 || phone2 != phone3);
     }
 
     #[test]
     fn test_remove_international_dialing_code() {
-        assert_eq!(remove_international_dialing_code("5511994029275"), "11994029275");
-        assert_eq!(remove_international_dialing_code("551635014415"), "1635014415");
-        assert_eq!(remove_international_dialing_code("+5511994029275"), "+11994029275");
-        
+        assert_eq!(
+            remove_international_dialing_code("5511994029275"),
+            "11994029275"
+        );
+        assert_eq!(
+            remove_international_dialing_code("551635014415"),
+            "1635014415"
+        );
+        assert_eq!(
+            remove_international_dialing_code("+5511994029275"),
+            "+11994029275"
+        );
+
         // Should not remove if length is 11 or less
-        assert_eq!(remove_international_dialing_code("11994029275"), "11994029275");
-        assert_eq!(remove_international_dialing_code("1635014415"), "1635014415");
+        assert_eq!(
+            remove_international_dialing_code("11994029275"),
+            "11994029275"
+        );
+        assert_eq!(
+            remove_international_dialing_code("1635014415"),
+            "1635014415"
+        );
     }
 
     #[test]
     fn test_remove_international_dialing_code_with_spaces() {
-        assert_eq!(remove_international_dialing_code("55 11 99402 9275"), "11994029275");
+        assert_eq!(
+            remove_international_dialing_code("55 11 99402 9275"),
+            "11994029275"
+        );
     }
 }

@@ -130,9 +130,7 @@ pub fn generate() -> String {
 
     loop {
         // Generate 10 random digits
-        let base: String = (0..10)
-            .map(|_| rng.gen_range(0..10).to_string())
-            .collect();
+        let base: String = (0..10).map(|_| rng.gen_range(0..10).to_string()).collect();
 
         // Check if all digits are the same
         let first_char = base.chars().next().unwrap();
