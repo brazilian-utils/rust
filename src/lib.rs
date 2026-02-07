@@ -5,6 +5,7 @@ pub mod cpf;
 pub mod currency;
 pub mod date_utils;
 pub mod email;
+pub mod legal_nature;
 
 #[cfg(test)]
 mod tests {
@@ -133,6 +134,38 @@ mod tests {
         assert!(!email::is_valid(""));
         assert!(!email::is_valid("user@"));
         assert!(!email::is_valid("@example.com"));
+    }
+
+    #[test]
+    fn test_legal_nature_module_accessible() {
+        // Test valid codes
+        assert!(legal_nature::is_valid("2062"));
+        assert!(legal_nature::is_valid("206-2"));
+        assert!(legal_nature::is_valid("1015"));
+        
+        // Test invalid codes
+        assert!(!legal_nature::is_valid("9999"));
+        assert!(!legal_nature::is_valid("0000"));
+        assert!(!legal_nature::is_valid(""));
+        
+        // Test get_description
+        assert_eq!(
+            legal_nature::get_description("2062"),
+            Some("Sociedade Empresária Limitada")
+        );
+        assert_eq!(
+            legal_nature::get_description("101-5"),
+            Some("Órgão Público do Poder Executivo Federal")
+        );
+        assert_eq!(legal_nature::get_description("9999"), None);
+        
+        // Test list_all
+        let table = legal_nature::list_all();
+        assert!(table.len() > 40);
+        assert_eq!(
+            table.get("2062"),
+            Some(&"Sociedade Empresária Limitada".to_string())
+        );
     }
 }
 
