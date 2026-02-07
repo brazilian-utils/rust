@@ -330,6 +330,162 @@ Seguimos o guia de estilo padrão do Rust. Pontos principais:
 - Adicione comentários de documentação para APIs públicas
 - Inclua exemplos na documentação quando apropriado
 
+### Documentação
+
+Todas as funções públicas devem ter:
+
+- Uma linha de resumo
+- Descrições dos parâmetros
+- Descrição do valor de retorno
+- Pelo menos um exemplo em doc tests
+
+Exemplo:
+
+```rust
+/// Valida um número de CPF brasileiro.
+///
+/// # Argumentos
+///
+/// * `cpf` - Uma string slice contendo o CPF a ser validado
+///
+/// # Retorno
+///
+/// `true` se o CPF for válido, `false` caso contrário
+///
+/// # Exemplo
+///
+/// ```
+/// use brazilian_utils::cpf;
+///
+/// assert!(cpf::is_valid("11144477735"));
+/// assert!(!cpf::is_valid("00000000000"));
+/// ```
+pub fn is_valid(cpf: &str) -> bool {
+    // Implementação
+}
+```
+
+## Diretrizes de Testes
+
+- Escreva testes unitários para toda nova funcionalidade
+- Inclua casos extremos nos seus testes
+- Teste o tratamento de entradas inválidas
+- Adicione doc tests para exemplos
+- Busque alta cobertura de código
+
+### Organização de Testes
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_input() {
+        // Teste casos válidos
+    }
+
+    #[test]
+    fn test_invalid_input() {
+        // Teste casos inválidos
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        // Teste casos extremos
+    }
+}
+```
+
+## Adicionando Novos Módulos
+
+Ao adicionar um novo documento brasileiro ou utilitário:
+
+1. Crie um novo arquivo em `src/` (ex: `src/novo_modulo.rs`)
+2. Adicione a declaração do módulo em `src/lib.rs`: `pub mod novo_modulo;`
+3. Implemente as seguintes funções (conforme aplicável):
+   - `is_valid()` - Validação
+   - `format_*()` - Formatação
+   - `generate()` - Geração aleatória
+   - `remove_symbols()` - Remoção de símbolos
+4. Adicione testes abrangentes
+5. Adicione doc tests com exemplos
+6. Crie um exemplo de demonstração no diretório `examples/`
+7. Atualize o README.md com as informações do novo módulo
+8. Adicione testes de integração em `src/lib.rs`
+
+## Template de Estrutura de Módulo
+
+```rust
+//! Breve descrição do módulo.
+//!
+//! Descrição mais detalhada se necessário.
+
+/// Valida um [nome do documento] brasileiro.
+///
+/// # Argumentos
+///
+/// * `value` - Descrição
+///
+/// # Retorno
+///
+/// `true` se válido, `false` caso contrário
+///
+/// # Exemplo
+///
+/// ```
+/// use brazilian_utils::nome_modulo;
+///
+/// assert!(nome_modulo::is_valid("valor_valido"));
+/// ```
+pub fn is_valid(value: &str) -> bool {
+    // Implementação
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_valid() {
+        // Testes
+    }
+}
+```
+
+## Diretrizes de Mensagens de Commit
+
+- Use mensagens de commit claras e descritivas
+- Comece com um verbo no presente (ex: "Adiciona", "Corrige", "Atualiza")
+- Referencie issues quando aplicável (ex: "Corrige #123")
+
+Exemplos:
+- `Adiciona módulo de validação de título de eleitor`
+- `Corrige cálculo do dígito verificador do CPF`
+- `Atualiza documentação do módulo CNPJ`
+- `Refatora lógica de conversão de placa de veículo`
+
+## Processo de Pull Request
+
+1. Atualize o README.md se estiver adicionando nova funcionalidade
+2. Adicione ou atualize testes conforme necessário
+3. Garanta que todos os testes passam localmente
+4. Atualize a documentação
+5. Crie um pull request com um título e descrição claros
+6. Vincule quaisquer issues relacionadas
+7. Aguarde o CI passar
+8. Responda a quaisquer comentários da revisão
+
+## Dúvidas ou Problemas?
+
+- Abra uma issue para bugs ou solicitações de recursos
+- Use as discussões para perguntas
+- Verifique issues e PRs existentes antes de criar novos
+
+## Código de Conduta
+
+Por favor, note que este projeto possui um Código de Conduta do Contribuidor. Ao participar deste projeto, você concorda em seguir seus termos.
+
 ## Licença
 
 Ao contribuir, você concorda que suas contribuições serão licenciadas sob a Licença MIT.
