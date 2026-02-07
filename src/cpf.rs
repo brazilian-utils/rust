@@ -22,6 +22,11 @@ pub fn is_valid(input: &str) -> bool {
         return false;
     }
 
+    // Check if all characters are digits
+    if !input.chars().all(|c| c.is_ascii_digit()) {
+        return false;
+    }
+
     is_valid_checksum(&input)
 }
 

@@ -1,3 +1,54 @@
 pub mod cep;
 pub mod cnh;
+pub mod cnpj;
 pub mod cpf;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cpf_module_accessible() {
+        // Test that CPF module functions are accessible
+        assert!(cpf::is_valid("11144477735"));
+        assert!(!cpf::is_valid("00000000000"));
+    }
+
+    #[test]
+    fn test_cep_module_accessible() {
+        // Test that CEP module functions are accessible
+        assert!(cep::is_valid("01310200"));
+        assert!(!cep::is_valid("12345"));
+        
+        assert_eq!(cep::format_cep("01310200"), Some("01310-200".to_string()));
+        assert_eq!(cep::remove_symbols("01310-200"), "01310200");
+        
+        let generated = cep::generate();
+        assert!(cep::is_valid(&generated));
+    }
+
+    #[test]
+    fn test_cnh_module_accessible() {
+        // Test that CNH module functions are accessible
+        assert!(cnh::is_valid_cnh("09770304734"));
+        assert!(!cnh::is_valid_cnh("00000000000"));
+    }
+
+    #[test]
+    fn test_cnpj_module_accessible() {
+        // Test that CNPJ module functions are accessible
+        assert!(cnpj::is_valid("03560714000142"));
+        assert!(!cnpj::is_valid("00000000000000"));
+        
+        assert_eq!(
+            cnpj::format_cnpj("03560714000142"),
+            Some("03.560.714/0001-42".to_string())
+        );
+        assert_eq!(cnpj::remove_symbols("03.560.714/0001-42"), "03560714000142");
+        
+        let generated = cnpj::generate(None);
+        assert!(cnpj::is_valid(&generated));
+        assert_eq!(generated.len(), 14);
+    }
+}
+
