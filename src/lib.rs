@@ -7,6 +7,7 @@ pub mod date_utils;
 pub mod email;
 pub mod legal_nature;
 pub mod legal_process;
+pub mod license_plate;
 
 #[cfg(test)]
 mod tests {
@@ -194,6 +195,48 @@ mod tests {
         let id = legal_process::generate(None, Some(5));
         assert!(id.is_some());
         assert_eq!(id.unwrap().len(), 20);
+    }
+
+    #[test]
+    fn test_license_plate_module_accessible() {
+        // Test remove_symbols
+        assert_eq!(license_plate::remove_symbols("ABC-1234"), "ABC1234");
+        
+        // Test format_license_plate
+        assert_eq!(
+            license_plate::format_license_plate("ABC1234"),
+            Some("ABC-1234".to_string())
+        );
+        assert_eq!(
+            license_plate::format_license_plate("ABC1D23"),
+            Some("ABC1D23".to_string())
+        );
+        
+        // Test is_valid
+        assert!(license_plate::is_valid("ABC1234", None));
+        assert!(license_plate::is_valid("ABC1D23", None));
+        assert!(!license_plate::is_valid("ABC123", None));
+        
+        // Test get_format
+        assert_eq!(
+            license_plate::get_format("ABC1234"),
+            Some("LLLNNNN".to_string())
+        );
+        assert_eq!(
+            license_plate::get_format("ABC1D23"),
+            Some("LLLNLNN".to_string())
+        );
+        
+        // Test convert_to_mercosul
+        assert_eq!(
+            license_plate::convert_to_mercosul("ABC1234"),
+            Some("ABC1C34".to_string())
+        );
+        
+        // Test generate
+        let plate = license_plate::generate(None);
+        assert!(plate.is_some());
+        assert_eq!(plate.unwrap().len(), 7);
     }
 }
 
