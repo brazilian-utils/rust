@@ -9,6 +9,7 @@ pub mod legal_nature;
 pub mod legal_process;
 pub mod license_plate;
 pub mod phone;
+pub mod pis;
 
 #[cfg(test)]
 mod tests {
@@ -278,6 +279,34 @@ mod tests {
         
         let landline = phone::generate(Some("landline"));
         assert_eq!(landline.len(), 10);
+    }
+
+    #[test]
+    fn test_pis_module_accessible() {
+        // Test remove_symbols
+        assert_eq!(pis::remove_symbols("123.456.789-09"), "12345678909");
+        
+        // Test is_valid
+        assert!(pis::is_valid("12345678900"));
+        assert!(pis::is_valid("98765432103"));
+        assert!(!pis::is_valid("12345678901"));
+        assert!(!pis::is_valid("123"));
+        
+        // Test format_pis
+        assert_eq!(
+            pis::format_pis("12345678900"),
+            Some("123.45678.90-0".to_string())
+        );
+        assert_eq!(
+            pis::format_pis("98765432103"),
+            Some("987.65432.10-3".to_string())
+        );
+        assert_eq!(pis::format_pis("123"), None);
+        
+        // Test generate
+        let pis_number = pis::generate();
+        assert_eq!(pis_number.len(), 11);
+        assert!(pis::is_valid(&pis_number));
     }
 }
 
