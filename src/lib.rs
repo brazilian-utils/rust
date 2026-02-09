@@ -1,3 +1,4 @@
+pub mod boleto;
 pub mod cep;
 pub mod cnh;
 pub mod cnpj;
@@ -16,6 +17,19 @@ pub mod voter_id;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_boleto_module_accessible() {
+        // Test that Boleto module functions are accessible
+        assert!(boleto::is_valid("00190000090114971860168524522114675860000102656"));
+        assert!(boleto::is_valid("0019000009 01149.718601 68524.522114 6 75860000102656"));
+        assert!(!boleto::is_valid("00190000020114971860168524522114675860000102656"));
+        assert!(!boleto::is_valid(""));
+        
+        // Test validate alias
+        assert!(boleto::validate("00190000090114971860168524522114675860000102656"));
+        assert!(!boleto::validate("000111"));
+    }
 
     #[test]
     fn test_cpf_module_accessible() {

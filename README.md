@@ -42,6 +42,7 @@ Esta biblioteca fornece utilitários abrangentes para manipular documentos, iden
 
 #### 💰 Financeiro e Texto
 
+- **Boleto** - Validação de linha digitável de boleto bancário
 - **Moeda** - Formatação de Real (BRL) e conversão para texto
 - **Utilitários de Data** - Verificação de feriados e conversão de data para texto
 - **Email** - Validação compatível com RFC 5322
@@ -108,6 +109,21 @@ if let Some(endereco) = cep::get_address_from_cep("01310200") {
     println!("Rua: {}", endereco.street);
     println!("Cidade: {}", endereco.city);
 }
+```
+
+#### Validação de Boleto
+
+```rust
+use brazilian_utils::boleto;
+
+// Validar linha digitável de boleto
+assert!(boleto::is_valid("00190000090114971860168524522114675860000102656"));
+
+// Validar com formatação (espaços e pontos)
+assert!(boleto::is_valid("0019000009 01149.718601 68524.522114 6 75860000102656"));
+
+// Validar linha inválida
+assert!(!boleto::is_valid("00190000020114971860168524522114675860000102656"));
 ```
 
 #### Placa de Veículo (Antiga e Mercosul)
@@ -217,7 +233,8 @@ assert_eq!(texto, Some("15 de janeiro de 2024".to_string()));
 ### Todos os Módulos Disponíveis
 
 | Módulo | Funções | Descrição |
-|--------|---------|-----------|
+|--------|---------|-----------|  
+| `boleto` | `is_valid`, `validate` | Validação de linha digitável de boleto |
 | `cep` | `is_valid`, `format_cep`, `remove_symbols`, `generate`, `get_address_from_cep`, `get_cep_information_from_address` | Validação de CEP e busca de endereço |
 | `cnh` | `is_valid_cnh` | Validação de CNH |
 | `cnpj` | `is_valid`, `validate`, `format_cnpj`, `remove_symbols`, `generate`, `hashdigit`, `compute_checksum` | Validação de registro empresarial |
@@ -328,6 +345,7 @@ This library provides comprehensive utilities for handling Brazilian documents, 
 
 #### 💰 Financial & Text
 
+- **Boleto** - Bank slip digitable line validation
 - **Currency** - Real (BRL) formatting and text conversion
 - **Date Utils** - Holiday checking and date text conversion
 - **Email** - RFC 5322 compliant validation
@@ -394,6 +412,21 @@ if let Some(address) = cep::get_address_from_cep("01310200") {
     println!("Street: {}", address.street);
     println!("City: {}", address.city);
 }
+```
+
+#### Boleto Validation
+
+```rust
+use brazilian_utils::boleto;
+
+// Validate boleto digitable line
+assert!(boleto::is_valid("00190000090114971860168524522114675860000102656"));
+
+// Validate with formatting (spaces and dots)
+assert!(boleto::is_valid("0019000009 01149.718601 68524.522114 6 75860000102656"));
+
+// Validate invalid line
+assert!(!boleto::is_valid("00190000020114971860168524522114675860000102656"));
 ```
 
 #### License Plate (Old and Mercosul)
@@ -504,6 +537,7 @@ assert_eq!(text, Some("15 de janeiro de 2024".to_string()));
 
 | Module | Functions | Description |
 |--------|-----------|-------------|
+| `boleto` | `is_valid`, `validate` | Bank slip digitable line validation |
 | `cep` | `is_valid`, `format_cep`, `remove_symbols`, `generate`, `get_address_from_cep`, `get_cep_information_from_address` | Postal code validation and address lookup |
 | `cnh` | `is_valid_cnh` | Driver's license validation |
 | `cnpj` | `is_valid`, `validate`, `format_cnpj`, `remove_symbols`, `generate`, `hashdigit`, `compute_checksum` | Company registration validation |
