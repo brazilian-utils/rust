@@ -3,6 +3,7 @@ pub mod cep;
 pub mod cnh;
 pub mod cnpj;
 pub mod cpf;
+mod cpf2;
 pub mod currency;
 pub mod date_utils;
 pub mod email;
@@ -13,6 +14,8 @@ pub mod phone;
 pub mod pis;
 pub mod renavam;
 pub mod voter_id;
+
+pub use cpf2::{Cpf, ParseCpfError};
 
 #[cfg(test)]
 mod tests {
