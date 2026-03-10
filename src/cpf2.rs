@@ -21,13 +21,27 @@ impl Cpf {
     pub fn compute_checksum(base: &[u8]) -> [u8; 2] {
         todo!()
     }
+
+    fn remove_symbols(s: &str) -> String {
+        s.chars().filter(|&c| c != '.' && c != '-').collect()
+    }
 }
 
 impl FromStr for Cpf {
     type Err = ParseCpfError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
+        let s = Self::remove_symbols(s.trim());
+        if s.len() != Self::SIZE {
+            return Err(ParseCpfError::WrongLength);
+        }
+
+        let mut digits = [0; Self::SIZE];
+        for (c, d) in s.chars().zip(digits.iter_mut()) {
+            *d = c.to_digit(10).ok_or(ParseCpfError::NonNumeric)? as u8;
+        }
+
+        Ok(Cpf(digits))
     }
 }
 
@@ -41,8 +55,13 @@ impl Display for Cpf {
 mod tests {
     use super::*;
 
-    const VALID_CPF_LIST: [&str; 7] = [
+    const VALID_CPF_LIST: [&str; 12] = [
         "11144477735",
+        "111.444.777-35",
+        "111-444-777-35",
+        "111.444.777.35",
+        "111444777-35",
+        "  111444777-35  ",
         "40364478829",
         "52513127765",
         "52599927765",
@@ -58,16 +77,28 @@ mod tests {
     const WRONG_CHECKSUM_LIST: [&str; 3] = ["11144477705", "11144477732", "11111111215"];
 
     #[test]
-    fn test_parse() {
+    fn test_parse_valid() {
         for s in VALID_CPF_LIST {
             assert!(s.parse::<Cpf>().is_ok());
         }
+    }
+
+    #[test]
+    fn test_parse_wrong_length() {
         for s in WRONG_LENGTH_LIST {
             assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::WrongLength));
         }
+    }
+
+    #[test]
+    fn test_parse_non_digits() {
         for s in NON_DIGITS_LIST {
             assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::NonNumeric));
         }
+    }
+
+    #[test]
+    fn test_parse_wrong_checksum() {
         for s in WRONG_CHECKSUM_LIST {
             assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::WrongChecksum));
         }
@@ -86,7 +117,11 @@ mod tests {
     fn test_compute_checksum() {
         for s in VALID_CPF_LIST {
             let cpf = s.parse::<Cpf>().unwrap();
-            assert_eq!(Cpf::compute_checksum(&cpf.0[0..9]), cpf.0[9..11],);
+            let split_idx = s.len() - 2;
+            assert_eq!(
+                Cpf::compute_checksum(&cpf.0[0..split_idx]),
+                cpf.0[split_idx..11],
+            );
         }
     }
 
