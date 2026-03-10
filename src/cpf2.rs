@@ -47,7 +47,15 @@ impl FromStr for Cpf {
 
 impl Display for Cpf {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        let digits: String = self.0.iter().map(|d| (d + b'0') as char).collect();
+        write!(
+            f,
+            "{}.{}.{}-{}",
+            &digits[0..3],
+            &digits[3..6],
+            &digits[6..9],
+            &digits[9..11],
+        )
     }
 }
 
@@ -128,8 +136,9 @@ mod tests {
     #[test]
     fn test_display() {
         for s in VALID_CPF_LIST {
+            let s = Cpf::remove_symbols(s.trim());
             assert_eq!(
-                Cpf::from_str(s).unwrap().to_string(),
+                Cpf::from_str(&s).unwrap().to_string(),
                 format!("{}.{}.{}-{}", &s[0..3], &s[3..6], &s[6..9], &s[9..11])
             )
         }
