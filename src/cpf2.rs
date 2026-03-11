@@ -9,10 +9,24 @@ pub enum ParseCpfError {
     WrongLength,
     NonNumeric,
     WrongChecksum,
+    BlackListed,
 }
 
 impl Cpf {
     const SIZE: usize = 11;
+
+    const BLACKLIST: [&str; 10] = [
+        "00000000000",
+        "11111111111",
+        "22222222222",
+        "33333333333",
+        "44444444444",
+        "55555555555",
+        "66666666666",
+        "77777777777",
+        "88888888888",
+        "99999999999",
+    ];
 
     pub fn generate() -> Self {
         todo!()
@@ -50,6 +64,10 @@ impl FromStr for Cpf {
         let s = Self::remove_symbols(s.trim());
         if s.len() != Self::SIZE {
             return Err(ParseCpfError::WrongLength);
+        }
+
+        if Self::BLACKLIST.contains(&s.as_str()) {
+            return Err(ParseCpfError::BlackListed);
         }
 
         let mut digits = [0; Self::SIZE];
@@ -129,6 +147,13 @@ mod tests {
     fn test_parse_wrong_checksum() {
         for s in WRONG_CHECKSUM_LIST {
             assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::WrongChecksum));
+        }
+    }
+
+    #[test]
+    fn test_parse_blacklisted() {
+        for s in Cpf::BLACKLIST {
+            assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::BlackListed));
         }
     }
 
