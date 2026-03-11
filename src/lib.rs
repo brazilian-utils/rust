@@ -2,7 +2,7 @@ pub mod boleto;
 pub mod cep;
 pub mod cnh;
 pub mod cnpj;
-pub mod cpf;
+mod cpf;
 pub mod currency;
 pub mod date_utils;
 pub mod email;
@@ -14,54 +14,59 @@ pub mod pis;
 pub mod renavam;
 pub mod voter_id;
 
+pub use cpf::Cpf;
+
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     #[test]
     fn test_boleto_module_accessible() {
         // Test that Boleto module functions are accessible
-        assert!(boleto::is_valid("00190000090114971860168524522114675860000102656"));
-        assert!(boleto::is_valid("0019000009 01149.718601 68524.522114 6 75860000102656"));
-        assert!(!boleto::is_valid("00190000020114971860168524522114675860000102656"));
+        assert!(boleto::is_valid(
+            "00190000090114971860168524522114675860000102656"
+        ));
+        assert!(boleto::is_valid(
+            "0019000009 01149.718601 68524.522114 6 75860000102656"
+        ));
+        assert!(!boleto::is_valid(
+            "00190000020114971860168524522114675860000102656"
+        ));
         assert!(!boleto::is_valid(""));
-        
+
         // Test validate alias
-        assert!(boleto::validate("00190000090114971860168524522114675860000102656"));
+        assert!(boleto::validate(
+            "00190000090114971860168524522114675860000102656"
+        ));
         assert!(!boleto::validate("000111"));
     }
 
     #[test]
     fn test_cpf_module_accessible() {
         // Test that CPF module functions are accessible
-        assert!(cpf::is_valid("11144477735"));
-        assert!(!cpf::is_valid("00000000000"));
+        assert!(Cpf::from_str("11144477735").is_ok());
+        assert!(Cpf::from_str("00000000000").is_err());
 
         // Test validate
-        assert!(cpf::validate("82178537464"));
-        assert!(!cpf::validate("12345678901"));
+        assert!(Cpf::from_str("82178537464").is_ok());
+        assert!(Cpf::from_str("12345678901").is_err());
 
         // Test format_cpf
         assert_eq!(
-            cpf::format_cpf("82178537464"),
-            Some("821.785.374-64".to_string())
+            Cpf::from_str("82178537464").unwrap().to_string(),
+            "821.785.374-64"
         );
-        assert_eq!(cpf::format_cpf("00000000000"), None);
 
         // Test remove_symbols
-        assert_eq!(cpf::remove_symbols("821.785.374-64"), "82178537464");
+        assert_eq!(
+            Cpf::from_str("821.785.374-64"),
+            Cpf::from_str("82178537464")
+        );
 
         // Test generate
-        let generated = cpf::generate();
-        assert_eq!(generated.len(), 11);
-        assert!(cpf::is_valid(&generated));
-
-        // Test hashdigit
-        assert_eq!(cpf::hashdigit("52599927765", 10), 6);
-        assert_eq!(cpf::hashdigit("52599927765", 11), 5);
-
-        // Test compute_checksum
-        assert_eq!(cpf::compute_checksum("525131277"), "65");
+        let _ = Cpf::generate();
     }
 
     #[test]

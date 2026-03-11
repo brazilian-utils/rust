@@ -1,420 +1,247 @@
-use rand::Rng;
+use std::fmt::Display;
+use std::str::FromStr;
 
-const SIZE: usize = 11;
+/// A structure that holds only numerically valid CPF numbers.
+/// No effort is made to verify that the CPF actually exists.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cpf([u8; Self::SIZE]);
 
-const BLACKLIST: [&str; 12] = [
-    "000",
-    "00000000000",
-    "11111111111",
-    "22222222222",
-    "33333333333",
-    "44444444444",
-    "55555555555",
-    "66666666666",
-    "77777777777",
-    "88888888888",
-    "99999999999",
-    "999999999999",
-];
-
-// FORMATTING
-// ==========
-
-/// Removes specific symbols from a CPF (Brazilian Individual Taxpayer Number) string.
-///
-/// This function takes a CPF string as input and removes all occurrences of
-/// the '.', '-' characters from it.
-///
-/// # Arguments
-///
-/// * `dirty` - The CPF string containing symbols to be removed.
-///
-/// # Returns
-///
-/// A new string with the specified symbols removed.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::remove_symbols;
-///
-/// assert_eq!(remove_symbols("123.456.789-01"), "12345678901");
-/// assert_eq!(remove_symbols("987-654-321.01"), "98765432101");
-/// ```
-pub fn remove_symbols(dirty: &str) -> String {
-    dirty.chars().filter(|c| *c != '.' && *c != '-').collect()
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParseCpfError {
+    WrongLength,
+    NonNumeric,
+    WrongChecksum,
+    BlackListed,
 }
 
-/// Format a CPF (Brazilian Individual Taxpayer Number) for display with visual aid symbols.
-///
-/// This function takes a numbers-only CPF string as input and adds standard
-/// formatting visual aid symbols for display.
-///
-/// # Arguments
-///
-/// * `cpf` - A numbers-only CPF string.
-///
-/// # Returns
-///
-/// A formatted CPF string with standard visual aid symbols or None if the input is invalid.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::format_cpf;
-///
-/// assert_eq!(format_cpf("82178537464"), Some("821.785.374-64".to_string()));
-/// assert_eq!(format_cpf("55550207753"), Some("555.502.077-53".to_string()));
-/// assert_eq!(format_cpf("12345678901"), None);
-/// ```
-pub fn format_cpf(cpf: &str) -> Option<String> {
-    if !is_valid(cpf) {
-        return None;
+impl Cpf {
+    const SIZE: usize = 11;
+
+    const BLACKLIST: [&str; 10] = [
+        "00000000000",
+        "11111111111",
+        "22222222222",
+        "33333333333",
+        "44444444444",
+        "55555555555",
+        "66666666666",
+        "77777777777",
+        "88888888888",
+        "99999999999",
+    ];
+
+    /// Generates a random, numerically valid CPF.
+    /// The generated CPF may or may not exist.
+    pub fn generate() -> Self {
+        use rand::distributions::{Distribution, Uniform};
+
+        let mut rng = rand::thread_rng();
+        let digit_dist = Uniform::from(0..=9u8);
+        let mut num = [0u8; 11];
+
+        // random base, reroll blacklisted
+        while num[0..9].iter().all(|&x| x == num[0]) {
+            num[0..9].copy_from_slice(
+                &digit_dist
+                    .sample_iter(&mut rng)
+                    .take(9)
+                    .collect::<Vec<u8>>(),
+            );
+        }
+
+        let checksum = Cpf::compute_checksum(num[0..9].as_array().unwrap());
+        num[9..].copy_from_slice(&checksum);
+        Self(num)
     }
 
-    Some(format!(
-        "{}.{}.{}-{}",
-        &cpf[0..3],
-        &cpf[3..6],
-        &cpf[6..9],
-        &cpf[9..11]
-    ))
-}
-
-// OPERATIONS
-// ==========
-
-/// Validate the checksum digits of a CPF.
-///
-/// This function checks whether the verifying checksum digits of the given CPF
-/// match its base number. The input should be a digit string of the proper length.
-///
-/// # Arguments
-///
-/// * `cpf` - A numbers-only CPF string.
-///
-/// # Returns
-///
-/// `true` if the checksum digits are valid, `false` otherwise.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::validate;
-///
-/// assert_eq!(validate("82178537464"), true);
-/// assert_eq!(validate("55550207753"), true);
-/// assert_eq!(validate("00011122233"), false);
-/// ```
-pub fn validate(cpf: &str) -> bool {
-    if !cpf.chars().all(|c| c.is_ascii_digit()) || cpf.len() != SIZE {
-        return false;
+    /// Computes the 2-digit CPF checksum for a 9-digit base number.
+    fn compute_checksum(base: &[u8; 9]) -> [u8; 2] {
+        let d1 = Self::hashdigit(base);
+        let mut new_base = base.to_owned();
+        new_base[0] = d1;
+        new_base.rotate_left(1);
+        let d2 = Self::hashdigit(&new_base);
+        [d1, d2]
     }
 
-    if is_blacklisted(cpf) {
-        return false;
+    /// Computes the 1-digit checksum for a 9-digit array.
+    fn hashdigit(base: &[u8; 9]) -> u8 {
+        let mod_sum = base
+            .iter()
+            .enumerate()
+            .fold(0, |acc, (i, d)| (acc + (10 - i as u8) * d) % 11);
+        if mod_sum < 2 {
+            0
+        } else {
+            11 - mod_sum
+        }
     }
 
-    is_valid_checksum(cpf)
-}
-
-/// Returns whether or not the verifying checksum digits of the given CPF
-/// match its base number.
-///
-/// This function does not verify the existence of the CPF; it only
-/// validates the format of the string.
-///
-/// # Arguments
-///
-/// * `cpf` - The CPF to be validated, an 11-digit string.
-///
-/// # Returns
-///
-/// `true` if the checksum digits match the base number, `false` otherwise.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::is_valid;
-///
-/// assert_eq!(is_valid("82178537464"), true);
-/// assert_eq!(is_valid("55550207753"), true);
-/// assert_eq!(is_valid("00011122233"), false);
-/// ```
-pub fn is_valid(cpf: &str) -> bool {
-    validate(cpf)
-}
-
-/// Generate a random valid CPF (Brazilian Individual Taxpayer Number) digit string.
-///
-/// # Returns
-///
-/// A random valid CPF string.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::{generate, is_valid};
-///
-/// let cpf = generate();
-/// assert_eq!(cpf.len(), 11);
-/// assert!(is_valid(&cpf));
-/// ```
-pub fn generate() -> String {
-    let mut rng = rand::thread_rng();
-    let base = format!("{:09}", rng.gen_range(1..=999999999));
-    let checksum = compute_checksum(&base);
-    format!("{}{}", base, checksum)
-}
-
-/// Compute the given position checksum digit for a CPF.
-///
-/// This function computes the specified position checksum digit for the CPF input.
-/// The input needs to contain all elements previous to the position, or the
-/// computation will yield the wrong result.
-///
-/// # Arguments
-///
-/// * `cpf` - A CPF string.
-/// * `position` - The position to calculate the checksum digit for (10 or 11).
-///
-/// # Returns
-///
-/// The calculated checksum digit.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::hashdigit;
-///
-/// assert_eq!(hashdigit("52599927765", 11), 5);
-/// assert_eq!(hashdigit("52599927765", 10), 6);
-/// ```
-pub fn hashdigit(cpf: &str, position: usize) -> usize {
-    let sum: usize = cpf
-        .chars()
-        .take(position - 1)
-        .enumerate()
-        .map(|(i, c)| {
-            let digit = c.to_digit(10).unwrap() as usize;
-            let weight = position - i;
-            digit * weight
-        })
-        .sum();
-
-    let val = sum % 11;
-    if val < 2 {
-        0
-    } else {
-        11 - val
+    /// Removes periods and dashes from string.
+    fn remove_symbols(s: &str) -> String {
+        s.chars().filter(|&c| c != '.' && c != '-').collect()
     }
 }
 
-/// Compute the checksum digits for a given CPF base number.
-///
-/// This function calculates the checksum digits for a given CPF base number.
-/// The base number should be a digit string of adequate length (9 digits).
-///
-/// # Arguments
-///
-/// * `basenum` - A digit string of adequate length.
-///
-/// # Returns
-///
-/// The calculated checksum digits as a string.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cpf::compute_checksum;
-///
-/// assert_eq!(compute_checksum("335451269"), "51");
-/// assert_eq!(compute_checksum("382916331"), "26");
-/// ```
-pub fn compute_checksum(basenum: &str) -> String {
-    let digit1 = hashdigit(basenum, 10);
-    let with_digit1 = format!("{}{}", basenum, digit1);
-    let digit2 = hashdigit(&with_digit1, 11);
+impl FromStr for Cpf {
+    type Err = ParseCpfError;
 
-    format!("{}{}", digit1, digit2)
+    /// Tries to parse a string into a numerically valid CPF number.
+    /// Trims whitespace and ignores periods and dashes.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = Self::remove_symbols(s.trim());
+        if s.len() != Self::SIZE {
+            return Err(ParseCpfError::WrongLength);
+        }
+
+        if Self::BLACKLIST.contains(&s.as_str()) {
+            return Err(ParseCpfError::BlackListed);
+        }
+
+        let mut digits = [0; Self::SIZE];
+        for (c, d) in s.chars().zip(digits.iter_mut()) {
+            *d = c.to_digit(10).ok_or(ParseCpfError::NonNumeric)? as u8;
+        }
+
+        if Cpf::compute_checksum(digits[..9].as_array().unwrap()) != digits[9..] {
+            return Err(ParseCpfError::WrongChecksum);
+        }
+
+        Ok(Cpf(digits))
+    }
 }
 
-fn is_blacklisted(input: &str) -> bool {
-    BLACKLIST.contains(&input)
-}
-
-fn is_valid_checksum(input: &str) -> bool {
-    let digit1 = hashdigit(input, 10);
-    let digit2 = hashdigit(input, 11);
-
-    input.chars().nth(9).unwrap().to_digit(10).unwrap() == digit1 as u32
-        && input.chars().nth(10).unwrap().to_digit(10).unwrap() == digit2 as u32
+impl Display for Cpf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let digits: String = self.0.iter().map(|d| (d + b'0') as char).collect();
+        write!(
+            f,
+            "{}.{}.{}-{}",
+            &digits[0..3],
+            &digits[3..6],
+            &digits[6..9],
+            &digits[9..11],
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_remove_symbols() {
-        assert_eq!(remove_symbols("00000000000"), "00000000000");
-        assert_eq!(remove_symbols("123.456.789-10"), "12345678910");
-        assert_eq!(remove_symbols("134..2435.-1892.-"), "13424351892");
-        assert_eq!(remove_symbols("abc1230916*!*&#"), "abc1230916*!*&#");
-        assert_eq!(
-            remove_symbols("ab.c1.--.2-309.-1-.6-.*.-!*&#"),
-            "abc1230916*!*&#"
-        );
-        assert_eq!(remove_symbols("...---..."), "");
-    }
+    const VALID_CPF_LIST: [&str; 12] = [
+        "11144477735",
+        "111.444.777-35",
+        "111-444-777-35",
+        "111.444.777.35",
+        "111444777-35",
+        "  111444777-35  ",
+        "40364478829",
+        "52513127765",
+        "52599927765",
+        "55550207753",
+        "82178537464",
+        "96271845860",
+    ];
+
+    const WRONG_LENGTH_LIST: [&str; 3] = ["1", "1234567890", "123456789012"];
+
+    const NON_DIGITS_LIST: [&str; 3] = ["b1144477735", "1234567890a", "12345!78901"];
+
+    const WRONG_CHECKSUM_LIST: [&str; 3] = ["11144477705", "11144477732", "11111111215"];
 
     #[test]
-    fn test_format_cpf() {
-        // Valid CPFs should be formatted
-        assert_eq!(
-            format_cpf("82178537464"),
-            Some("821.785.374-64".to_string())
-        );
-        assert_eq!(
-            format_cpf("55550207753"),
-            Some("555.502.077-53".to_string())
-        );
-        assert_eq!(
-            format_cpf("11144477735"),
-            Some("111.444.777-35".to_string())
-        );
-
-        // Invalid CPFs should return None
-        assert_eq!(format_cpf("00000000000"), None);
-        assert_eq!(format_cpf("12345678901"), None);
-        assert_eq!(format_cpf("1234567890"), None);
-        assert_eq!(format_cpf("123456789012"), None);
-    }
-
-    #[test]
-    fn test_validate() {
-        // Valid CPFs
-        assert!(validate("52513127765"));
-        assert!(validate("52599927765"));
-        assert!(validate("82178537464"));
-        assert!(validate("55550207753"));
-
-        // Invalid CPFs
-        assert!(!validate("00000000000"));
-        assert!(!validate("11111111111"));
-        assert!(!validate("12345678901"));
-        assert!(!validate("123456789"));
-        assert!(!validate("12345678901a"));
-    }
-
-    #[test]
-    fn test_is_valid() {
-        // Valid CPFs
-        assert!(is_valid("96271845860"));
-        assert!(is_valid("40364478829"));
-        assert!(is_valid("11144477735"));
-        assert!(is_valid("82178537464"));
-        assert!(is_valid("55550207753"));
-
-        // Invalid CPFs - wrong length
-        assert!(!is_valid("1"));
-        assert!(!is_valid("123456789"));
-        assert!(!is_valid("123456789012"));
-
-        // Invalid CPFs - non-digits
-        assert!(!is_valid("1112223334-"));
-        assert!(!is_valid("111.444.777-35"));
-
-        // Invalid CPFs - blacklisted sequences
-        for input in BLACKLIST.iter() {
-            assert!(!is_valid(input));
+    fn test_parse_valid() {
+        for s in VALID_CPF_LIST {
+            assert!(s.parse::<Cpf>().is_ok());
         }
+    }
 
-        // Invalid CPFs - wrong checksum
-        assert!(!is_valid("11144477705"));
-        assert!(!is_valid("11144477732"));
-        assert!(!is_valid("11111111215"));
+    #[test]
+    fn test_parse_wrong_length() {
+        for s in WRONG_LENGTH_LIST {
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::WrongLength),
+                "failed when parsing '{s}'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_non_digits() {
+        for s in NON_DIGITS_LIST {
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::NonNumeric),
+                "failed when parsing '{s}'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_wrong_checksum() {
+        for s in WRONG_CHECKSUM_LIST {
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::WrongChecksum),
+                "failed when parsing '{s}'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_blacklisted() {
+        for s in Cpf::BLACKLIST {
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::BlackListed),
+                "failed when parsing '{s}'"
+            );
+        }
     }
 
     #[test]
     fn test_generate() {
-        // Test that generate creates valid CPFs
         for _ in 0..1000 {
-            let cpf = generate();
-            assert_eq!(cpf.len(), 11);
-            assert!(is_valid(&cpf));
-            assert!(cpf.chars().all(|c| c.is_ascii_digit()));
+            let cpf = Cpf::generate();
+            assert!(cpf.0.iter().all(|x| (0..=9).contains(x)));
+            assert_eq!(
+                &Cpf::compute_checksum(cpf.0.first_chunk().unwrap()),
+                cpf.0.last_chunk().unwrap(),
+                "generated invalid CPF: {cpf}"
+            );
         }
     }
 
     #[test]
     fn test_hashdigit() {
-        assert_eq!(hashdigit("000000000", 10), 0);
-        assert_eq!(hashdigit("0000000000", 11), 0);
-        assert_eq!(hashdigit("52513127765", 10), 6);
-        assert_eq!(hashdigit("52513127765", 11), 5);
-        assert_eq!(hashdigit("52599927765", 10), 6);
-        assert_eq!(hashdigit("52599927765", 11), 5);
+        assert_eq!(Cpf::hashdigit(&[0, 0, 0, 0, 0, 0, 0, 0, 0]), 0);
+        assert_eq!(Cpf::hashdigit(&[5, 2, 5, 1, 3, 1, 2, 7, 7]), 6);
+        assert_eq!(Cpf::hashdigit(&[2, 5, 1, 3, 1, 2, 7, 7, 6]), 5);
+        assert_eq!(Cpf::hashdigit(&[5, 2, 5, 9, 9, 9, 2, 7, 7]), 6);
+        assert_eq!(Cpf::hashdigit(&[2, 5, 9, 9, 9, 2, 7, 7, 6]), 5);
     }
 
     #[test]
     fn test_compute_checksum() {
-        assert_eq!(compute_checksum("000000000"), "00");
-        assert_eq!(compute_checksum("525131277"), "65");
-        assert_eq!(compute_checksum("335451269"), "51");
-        assert_eq!(compute_checksum("382916331"), "26");
+        for s in VALID_CPF_LIST {
+            let cpf = s.parse::<Cpf>().unwrap();
+            assert_eq!(
+                Cpf::compute_checksum(cpf.0[..9].as_array().unwrap()),
+                cpf.0[9..]
+            );
+        }
     }
 
     #[test]
-    fn test_is_blacklisted() {
-        assert!(is_blacklisted("00000000000"));
-        assert!(is_blacklisted("11111111111"));
-        assert!(is_blacklisted("99999999999"));
-        assert!(!is_blacklisted("12345678901"));
-    }
-
-    #[test]
-    fn test_is_valid_checksum() {
-        // Valid checksums
-        assert!(is_valid_checksum("11144477735"));
-        assert!(is_valid_checksum("96271845860"));
-
-        // Invalid checksums
-        assert!(!is_valid_checksum("11144477705"));
-        assert!(!is_valid_checksum("11144477732"));
-    }
-
-    #[test]
-    fn test_edge_cases() {
-        // Empty string
-        assert!(!is_valid(""));
-
-        // Special characters
-        assert!(!is_valid("!@#$%^&*()_"));
-
-        // Mixed valid and invalid
-        assert!(!is_valid("111444777a5"));
-    }
-
-    #[test]
-    fn test_format_with_symbols() {
-        // Test that formatting after removing symbols works
-        let cpf_with_symbols = "821.785.374-64";
-        let cpf_clean = remove_symbols(cpf_with_symbols);
-        assert_eq!(format_cpf(&cpf_clean), Some("821.785.374-64".to_string()));
-    }
-
-    #[test]
-    fn test_generate_uniqueness() {
-        // Test that generate creates different CPFs
-        let cpf1 = generate();
-        let cpf2 = generate();
-        let cpf3 = generate();
-
-        // While theoretically they could be the same, the probability is very low
-        // Just check they're all valid
-        assert!(is_valid(&cpf1));
-        assert!(is_valid(&cpf2));
-        assert!(is_valid(&cpf3));
+    fn test_display() {
+        for s in VALID_CPF_LIST {
+            let s_ = Cpf::remove_symbols(s.trim());
+            assert_eq!(
+                Cpf::from_str(s).unwrap().to_string(),
+                format!("{}.{}.{}-{}", &s_[0..3], &s_[3..6], &s_[6..9], &s_[9..11])
+            )
+        }
     }
 }
