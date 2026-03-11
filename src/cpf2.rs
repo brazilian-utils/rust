@@ -45,24 +45,25 @@ impl Cpf {
             );
         }
 
-        let checksum = Cpf::compute_checksum(&num[0..9]);
+        let checksum = Cpf::compute_checksum(num[0..9].as_array().unwrap());
         num[9..].copy_from_slice(&checksum);
         Self(num)
     }
 
-    fn compute_checksum(base: &[u8]) -> [u8; 2] {
+    fn compute_checksum(base: &[u8; 9]) -> [u8; 2] {
         let d1 = Self::hashdigit(base);
-        let new_base: Vec<u8> = base.iter().chain(std::iter::once(&d1)).cloned().collect();
+        let mut new_base = base.to_owned();
+        new_base[0] = d1;
+        new_base.rotate_left(1);
         let d2 = Self::hashdigit(&new_base);
         [d1, d2]
     }
 
-    fn hashdigit(base: &[u8]) -> u8 {
+    fn hashdigit(base: &[u8; 9]) -> u8 {
         let mod_sum = base
             .iter()
-            .rev()
             .enumerate()
-            .fold(0, |acc, (i, d)| (acc + (2 + i as u8) * d) % 11);
+            .fold(0, |acc, (i, d)| (acc + (10 - i as u8) * d) % 11);
         if mod_sum < 2 {
             0
         } else {
@@ -93,7 +94,7 @@ impl FromStr for Cpf {
             *d = c.to_digit(10).ok_or(ParseCpfError::NonNumeric)? as u8;
         }
 
-        if Cpf::compute_checksum(&digits[..9]) != digits[9..] {
+        if Cpf::compute_checksum(digits[..9].as_array().unwrap()) != digits[9..] {
             return Err(ParseCpfError::WrongChecksum);
         }
 
@@ -207,18 +208,20 @@ mod tests {
     #[test]
     fn test_hashdigit() {
         assert_eq!(Cpf::hashdigit(&[0, 0, 0, 0, 0, 0, 0, 0, 0]), 0);
-        assert_eq!(Cpf::hashdigit(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 0);
         assert_eq!(Cpf::hashdigit(&[5, 2, 5, 1, 3, 1, 2, 7, 7]), 6);
-        assert_eq!(Cpf::hashdigit(&[5, 2, 5, 1, 3, 1, 2, 7, 7, 6]), 5);
+        assert_eq!(Cpf::hashdigit(&[2, 5, 1, 3, 1, 2, 7, 7, 6]), 5);
         assert_eq!(Cpf::hashdigit(&[5, 2, 5, 9, 9, 9, 2, 7, 7]), 6);
-        assert_eq!(Cpf::hashdigit(&[5, 2, 5, 9, 9, 9, 2, 7, 7, 6]), 5);
+        assert_eq!(Cpf::hashdigit(&[2, 5, 9, 9, 9, 2, 7, 7, 6]), 5);
     }
 
     #[test]
     fn test_compute_checksum() {
         for s in VALID_CPF_LIST {
             let cpf = s.parse::<Cpf>().unwrap();
-            assert_eq!(Cpf::compute_checksum(&cpf.0[..9]), cpf.0[9..]);
+            assert_eq!(
+                Cpf::compute_checksum(cpf.0[..9].as_array().unwrap()),
+                cpf.0[9..]
+            );
         }
     }
 
