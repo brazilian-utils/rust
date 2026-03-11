@@ -29,7 +29,25 @@ impl Cpf {
     ];
 
     pub fn generate() -> Self {
-        todo!()
+        use rand::distributions::{Distribution, Uniform};
+
+        let mut rng = rand::thread_rng();
+        let digit_dist = Uniform::from(0..=9u8);
+        let mut num = [0u8; 11];
+
+        // random base, reroll blacklisted
+        while num[0..9].iter().all(|&x| x == num[0]) {
+            num[0..9].copy_from_slice(
+                &digit_dist
+                    .sample_iter(&mut rng)
+                    .take(9)
+                    .collect::<Vec<u8>>(),
+            );
+        }
+
+        let checksum = Cpf::compute_checksum(&num[0..9]);
+        num[9..].copy_from_slice(&checksum);
+        Self(num)
     }
 
     fn compute_checksum(base: &[u8]) -> [u8; 2] {
@@ -132,28 +150,44 @@ mod tests {
     #[test]
     fn test_parse_wrong_length() {
         for s in WRONG_LENGTH_LIST {
-            assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::WrongLength));
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::WrongLength),
+                "failed when parsing '{s}'"
+            );
         }
     }
 
     #[test]
     fn test_parse_non_digits() {
         for s in NON_DIGITS_LIST {
-            assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::NonNumeric));
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::NonNumeric),
+                "failed when parsing '{s}'"
+            );
         }
     }
 
     #[test]
     fn test_parse_wrong_checksum() {
         for s in WRONG_CHECKSUM_LIST {
-            assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::WrongChecksum));
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::WrongChecksum),
+                "failed when parsing '{s}'"
+            );
         }
     }
 
     #[test]
     fn test_parse_blacklisted() {
         for s in Cpf::BLACKLIST {
-            assert_eq!(s.parse::<Cpf>(), Err(ParseCpfError::BlackListed));
+            assert_eq!(
+                s.parse::<Cpf>(),
+                Err(ParseCpfError::BlackListed),
+                "failed when parsing '{s}'"
+            );
         }
     }
 
@@ -161,8 +195,12 @@ mod tests {
     fn test_generate() {
         for _ in 0..1000 {
             let cpf = Cpf::generate();
-            assert_eq!(cpf.0.len(), 11);
-            assert!(cpf.0.iter().all(|x| (0..=9).contains(x)))
+            assert!(cpf.0.iter().all(|x| (0..=9).contains(x)));
+            assert_eq!(
+                &Cpf::compute_checksum(cpf.0.first_chunk().unwrap()),
+                cpf.0.last_chunk().unwrap(),
+                "generated invalid CPF: {cpf}"
+            );
         }
     }
 
@@ -187,10 +225,10 @@ mod tests {
     #[test]
     fn test_display() {
         for s in VALID_CPF_LIST {
-            let s = Cpf::remove_symbols(s.trim());
+            let s_ = Cpf::remove_symbols(s.trim());
             assert_eq!(
-                Cpf::from_str(&s).unwrap().to_string(),
-                format!("{}.{}.{}-{}", &s[0..3], &s[3..6], &s[6..9], &s[9..11])
+                Cpf::from_str(s).unwrap().to_string(),
+                format!("{}.{}.{}-{}", &s_[0..3], &s_[3..6], &s_[6..9], &s_[9..11])
             )
         }
     }
