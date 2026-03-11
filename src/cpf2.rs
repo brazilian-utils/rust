@@ -1,6 +1,8 @@
 use std::fmt::Display;
 use std::str::FromStr;
 
+/// A structure that holds only numerically valid CPF numbers.
+/// No effort is made to verify that the CPF actually exists.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cpf([u8; Self::SIZE]);
 
@@ -28,6 +30,8 @@ impl Cpf {
         "99999999999",
     ];
 
+    /// Generates a random, numerically valid CPF.
+    /// The generated CPF may or may not exist.
     pub fn generate() -> Self {
         use rand::distributions::{Distribution, Uniform};
 
@@ -50,6 +54,7 @@ impl Cpf {
         Self(num)
     }
 
+    /// Computes the 2-digit CPF checksum for a 9-digit base number.
     fn compute_checksum(base: &[u8; 9]) -> [u8; 2] {
         let d1 = Self::hashdigit(base);
         let mut new_base = base.to_owned();
@@ -59,6 +64,7 @@ impl Cpf {
         [d1, d2]
     }
 
+    /// Computes the 1-digit checksum for a 9-digit array.
     fn hashdigit(base: &[u8; 9]) -> u8 {
         let mod_sum = base
             .iter()
@@ -71,6 +77,7 @@ impl Cpf {
         }
     }
 
+    /// Removes periods and dashes from string.
     fn remove_symbols(s: &str) -> String {
         s.chars().filter(|&c| c != '.' && c != '-').collect()
     }
@@ -79,6 +86,8 @@ impl Cpf {
 impl FromStr for Cpf {
     type Err = ParseCpfError;
 
+    /// Tries to parse a string into a numerically valid CPF number.
+    /// Trims whitespace and ignores periods and dashes.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = Self::remove_symbols(s.trim());
         if s.len() != Self::SIZE {
