@@ -54,7 +54,7 @@ fn get_month_name(month: u32) -> &'static str {
 /// );
 /// assert_eq!(
 ///     convert_date_to_text("15/08/1990"),
-///     Some("Quinze de agosto de mil, novecentos e noventa".to_string())
+///     Some("Quinze de agosto de mil novecentos e noventa".to_string())
 /// );
 /// assert_eq!(convert_date_to_text("invalid"), None);
 /// ```
@@ -198,6 +198,7 @@ fn is_national_holiday(year: i32, month: u32, day: u32, date: NaiveDate) -> bool
         (10, 12) if year <= 1930 || year >= 1980 => true, // Our Lady of Aparecida
         (11, 2) => true, // All Souls' Day - Finados
         (11, 15) => true, // Republic Proclamation Day
+        (11, 20) if year >= 2024 => true, // Black Awareness Day (national, Lei 14.759/2023)
         (12, 25) if year >= 1922 => true, // Christmas Day
         _ => false,
     };
@@ -425,7 +426,7 @@ mod tests {
         );
         assert_eq!(
             convert_date_to_text("15/08/1990"),
-            Some("Quinze de agosto de mil, novecentos e noventa".to_string())
+            Some("Quinze de agosto de mil novecentos e noventa".to_string())
         );
         assert_eq!(
             convert_date_to_text("25/12/2000"),
@@ -465,6 +466,26 @@ mod tests {
         assert_eq!(
             is_holiday(NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(), None),
             Some(true)
+        );
+    }
+
+    #[test]
+    fn test_is_holiday_black_awareness_day_national() {
+        // Lei 14.759/2023: Black Awareness Day (Nov 20) became a national
+        // holiday starting in 2024.
+        assert_eq!(
+            is_holiday(NaiveDate::from_ymd_opt(2024, 11, 20).unwrap(), None),
+            Some(true)
+        );
+        assert_eq!(
+            is_holiday(NaiveDate::from_ymd_opt(2025, 11, 20).unwrap(), None),
+            Some(true)
+        );
+
+        // Before the law, it was not a national holiday (only in specific states).
+        assert_eq!(
+            is_holiday(NaiveDate::from_ymd_opt(2023, 11, 20).unwrap(), None),
+            Some(false)
         );
     }
 

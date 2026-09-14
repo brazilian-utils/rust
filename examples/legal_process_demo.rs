@@ -25,9 +25,9 @@ fn main() {
     // Example 3: Validate legal process IDs
     println!("3. Validate Legal Process IDs:");
     let valid_ids = vec![
-        "10188748220234018200",
-        "45532346920234025107",
-        "2314194-58.2005.5.07.0079",
+        "10188748320234018200",
+        "45532347020234025107",
+        "2314194-59.2005.5.07.0079",
     ];
 
     for id in valid_ids {

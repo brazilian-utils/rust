@@ -87,7 +87,8 @@ pub fn format_legal_process(legal_process_id: &str) -> Option<String> {
 
 /// Calculate the checksum for a legal process ID.
 ///
-/// The checksum is calculated using modulo 97 arithmetic.
+/// The checksum follows ISO 7064 MOD 97-10, as required by CNJ Resolução
+/// 65/2008, art. 1º, § 2º: DD = 98 − ((N × 100) mod 97).
 ///
 /// # Arguments
 ///
@@ -98,7 +99,7 @@ pub fn format_legal_process(legal_process_id: &str) -> Option<String> {
 /// The checksum value as a 2-digit string.
 fn checksum(basenum: &str) -> String {
     if let Ok(num) = basenum.parse::<u128>() {
-        let result = 97 - ((num * 100) % 97);
+        let result = 98 - ((num * 100) % 97);
         format!("{:02}", result)
     } else {
         "00".to_string()
@@ -124,8 +125,7 @@ fn checksum(basenum: &str) -> String {
 /// ```
 /// use brazilian_utils::legal_process::is_valid;
 ///
-/// assert_eq!(is_valid("68476506020233030000"), true);
-/// assert_eq!(is_valid("51808233620233030000"), true);
+/// assert_eq!(is_valid("00020802520125150049"), true);
 /// assert_eq!(is_valid("123"), false);
 /// assert_eq!(is_valid("00000000000000000000"), false);
 /// ```
@@ -307,15 +307,21 @@ mod tests {
 
     #[test]
     fn test_checksum() {
-        assert_eq!(checksum("546611720238150014"), "77");
-        assert_eq!(checksum("403818720238230498"), "50");
+        // ISO 7064 MOD 97-10: DD = 98 - ((N * 100) mod 97) (CNJ Res. 65/2008, art. 1o, par. 2o)
+        assert_eq!(checksum("546611720238150014"), "78");
+        assert_eq!(checksum("403818720238230498"), "51");
+        // Official CNJ example (Res. 65/2008): 0002080-25.2012.5.15.0049
+        assert_eq!(checksum("000208020125150049"), "25");
     }
 
     #[test]
     fn test_is_valid() {
         // Valid cases
-        assert!(is_valid("10188748220234018200"));
-        assert!(is_valid("45532346920234025107"));
+        assert!(is_valid("10188748320234018200"));
+        assert!(is_valid("45532347020234025107"));
+
+        // Official CNJ example (Res. 65/2008)
+        assert!(is_valid("00020802520125150049"));
 
         // Invalid checksum
         assert!(!is_valid("10188748220239918200"));
@@ -334,8 +340,8 @@ mod tests {
     #[test]
     fn test_is_valid_with_symbols() {
         // Valid formatted
-        assert!(is_valid("1018874-82.2023.4.01.8200"));
-        assert!(is_valid("4553234-69.2023.4.02.5107"));
+        assert!(is_valid("1018874-83.2023.4.01.8200"));
+        assert!(is_valid("4553234-70.2023.4.02.5107"));
     }
 
     #[test]

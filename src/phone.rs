@@ -3,6 +3,41 @@
 /// Supports both mobile and landline phone numbers.
 use rand::Rng;
 
+/// The 67 area codes (DDD) of the Anatel Plano Geral de Numeração.
+///
+/// Source: Resolução Anatel nº 749/2022. Codes outside this list (e.g. 23,
+/// 25, 26, 29, 36, 39, 52, 56-59, 72, 76, 78) do not exist, even though they
+/// pass a naive "two digits 1-9" check.
+const VALID_DDDS: &[&str] = &[
+    "11", "12", "13", "14", "15", "16", "17", "18", "19", // SP
+    "21", "22", "24", // RJ
+    "27", "28", // ES
+    "31", "32", "33", "34", "35", "37", "38", // MG
+    "41", "42", "43", "44", "45", "46", // PR
+    "47", "48", "49", // SC
+    "51", "53", "54", "55", // RS
+    "61", // DF
+    "62", "64", // GO
+    "63", // TO
+    "65", "66", // MT
+    "67", // MS
+    "68", // AC
+    "69", // RO
+    "71", "73", "74", "75", "77", // BA
+    "79", // SE
+    "81", "87", // PE
+    "82", // AL
+    "83", // PB
+    "84", // RN
+    "85", "88", // CE
+    "86", "89", // PI
+    "91", "93", "94", // PA
+    "92", "97", // AM
+    "95", // RR
+    "96", // AP
+    "98", "99", // MA
+];
+
 /// Removes common symbols from a Brazilian phone number string.
 ///
 /// # Arguments
@@ -33,9 +68,11 @@ pub fn remove_symbols(phone_number: &str) -> String {
 
 /// Checks if a phone number string matches the mobile format.
 ///
-/// Mobile format: [1-9][1-9][9]XXXXXXXX (11 digits)
-/// - First 2 digits: DDD (area code) - both must be 1-9
-/// - Third digit: Must be 9 (mobile identifier)
+/// Mobile format: DDD + [7-9] + XXXXXXXX (11 digits)
+/// - First 2 digits: DDD (area code), must be one of the 67 real Anatel codes
+/// - Third digit: 7, 8 or 9 (SMP mobile identifier, Res. Anatel 749/2022,
+///   art. 12, I, "a" — only 9 is currently assigned in practice, but 7 and 8
+///   are reserved by the same rule)
 /// - Remaining 8 digits: Any digit 0-9
 ///
 /// # Arguments
@@ -57,13 +94,13 @@ fn is_valid_mobile(phone_number: &str) -> bool {
         return false;
     }
 
-    // First two digits (DDD) must be 1-9
-    if chars[0] < '1' || chars[0] > '9' || chars[1] < '1' || chars[1] > '9' {
+    // First two digits (DDD) must be a real Anatel area code
+    if !VALID_DDDS.contains(&&phone_number[0..2]) {
         return false;
     }
 
-    // Third digit must be 9 (mobile identifier)
-    if chars[2] != '9' {
+    // Third digit must be 7, 8 or 9 (mobile identifier)
+    if !('7'..='9').contains(&chars[2]) {
         return false;
     }
 
@@ -72,9 +109,10 @@ fn is_valid_mobile(phone_number: &str) -> bool {
 
 /// Checks if a phone number string matches the landline format.
 ///
-/// Landline format: [1-9][1-9][2-5]XXXXXXX (10 digits)
-/// - First 2 digits: DDD (area code) - both must be 1-9
-/// - Third digit: Must be 2-5 (landline identifier)
+/// Landline format: DDD + [2-6] + XXXXXXX (10 digits)
+/// - First 2 digits: DDD (area code), must be one of the 67 real Anatel codes
+/// - Third digit: 2 to 6 (STFC/SCM landline identifier, Res. Anatel 749/2022,
+///   art. 11, I, "a")
 /// - Remaining 7 digits: Any digit 0-9
 ///
 /// # Arguments
@@ -96,13 +134,13 @@ fn is_valid_landline(phone_number: &str) -> bool {
         return false;
     }
 
-    // First two digits (DDD) must be 1-9
-    if chars[0] < '1' || chars[0] > '9' || chars[1] < '1' || chars[1] > '9' {
+    // First two digits (DDD) must be a real Anatel area code
+    if !VALID_DDDS.contains(&&phone_number[0..2]) {
         return false;
     }
 
-    // Third digit must be 2-5 (landline identifier)
-    if chars[2] < '2' || chars[2] > '5' {
+    // Third digit must be 2-6 (landline identifier)
+    if !('2'..='6').contains(&chars[2]) {
         return false;
     }
 
@@ -194,10 +232,10 @@ pub fn format_phone(phone: &str) -> Option<String> {
 ///
 /// # Returns
 ///
-/// A 2-digit DDD string where both digits are between 1-9.
+/// A real Anatel DDD, picked at random from [`VALID_DDDS`].
 fn generate_ddd_number() -> String {
     let mut rng = rand::thread_rng();
-    format!("{}{}", rng.gen_range(1..=9), rng.gen_range(1..=9))
+    VALID_DDDS[rng.gen_range(0..VALID_DDDS.len())].to_string()
 }
 
 /// Generate a valid and random mobile phone number.
@@ -221,7 +259,7 @@ fn generate_mobile_phone() -> String {
 fn generate_landline_phone() -> String {
     let mut rng = rand::thread_rng();
     let ddd = generate_ddd_number();
-    let first_digit = rng.gen_range(2..=5);
+    let first_digit = rng.gen_range(2..=6);
     let remaining = format!("{:07}", rng.gen_range(0..=9999999));
 
     format!("{}{}{}", ddd, first_digit, remaining)
@@ -287,16 +325,18 @@ pub fn generate(phone_type: Option<&str>) -> String {
 ///
 /// assert_eq!(remove_international_dialing_code("5511994029275"), "11994029275");
 /// assert_eq!(remove_international_dialing_code("1635014415"), "1635014415");
-/// assert_eq!(remove_international_dialing_code("+5511994029275"), "+11994029275");
+/// assert_eq!(remove_international_dialing_code("+5511994029275"), "11994029275");
 /// ```
 pub fn remove_international_dialing_code(phone_number: &str) -> String {
-    let cleaned = phone_number.replace(" ", "");
+    let cleaned = phone_number.replace(' ', "");
+    let digits = cleaned.strip_prefix('+').unwrap_or(&cleaned);
 
-    // Check if starts with +55 or 55 and has more than 11 digits
-    if cleaned.len() > 11
-        && (cleaned.starts_with("+55") || cleaned.starts_with("55"))
-    {
-        return cleaned.replacen("55", "", 1);
+    // Check if starts with 55 and has more than 11 digits (i.e. there's a
+    // national number left over after the country code). The leading '+',
+    // if any, is dropped along with the country code — it's not part of the
+    // national number, so it must not survive in the result.
+    if digits.len() > 11 && digits.starts_with("55") {
+        return digits[2..].to_string();
     }
 
     phone_number.to_string()
@@ -320,10 +360,16 @@ mod tests {
         assert!(is_valid("21987654321", Some("mobile")));
         assert!(is_valid("85912345678", Some("mobile")));
 
+        // 7 and 8 are reserved for SMP too (Res. Anatel 749/2022, art. 12, I,
+        // "a"), even though only 9 is assigned in practice today.
+        assert!(is_valid("11894029275", Some("mobile")));
+        assert!(is_valid("11794029275", Some("mobile")));
+
         assert!(!is_valid("1635014415", Some("mobile")));
-        assert!(!is_valid("11894029275", Some("mobile"))); // 8 instead of 9
+        assert!(!is_valid("11694029275", Some("mobile"))); // 6 is a landline identifier
         assert!(!is_valid("1194029275", Some("mobile"))); // Too short
         assert!(!is_valid("119940292751", Some("mobile"))); // Too long
+        assert!(!is_valid("23994029275", Some("mobile"))); // 23 is not a real DDD
     }
 
     #[test]
@@ -332,11 +378,15 @@ mod tests {
         assert!(is_valid("1133334444", Some("landline")));
         assert!(is_valid("8532221111", Some("landline")));
 
+        // 6 is a valid landline identifier too (Res. Anatel 749/2022, art. 11, I, "a")
+        assert!(is_valid("1665014415", Some("landline")));
+
         assert!(!is_valid("11994029275", Some("landline")));
         assert!(!is_valid("1635014415", Some("mobile")));
         assert!(!is_valid("163501441", Some("landline"))); // Too short
         assert!(!is_valid("16350144151", Some("landline"))); // Too long
-        assert!(!is_valid("1665014415", Some("landline"))); // 6 not in 2-5 range
+        assert!(!is_valid("1615014415", Some("landline"))); // 1 is not a landline identifier
+        assert!(!is_valid("2335014415", Some("landline"))); // 23 is not a real DDD
     }
 
     #[test]
@@ -345,10 +395,11 @@ mod tests {
         assert!(is_valid("1635014415", None));
         assert!(is_valid("21987654321", None));
         assert!(is_valid("1133334444", None));
+        assert!(is_valid("1665014415", None));
 
         assert!(!is_valid("123", None));
-        assert!(!is_valid("11894029275", None));
-        assert!(!is_valid("1665014415", None));
+        assert!(!is_valid("1615014415", None));
+        assert!(!is_valid("2335014415", None)); // 23 is not a real DDD
     }
 
     #[test]
@@ -412,8 +463,14 @@ mod tests {
             "1635014415"
         );
         assert_eq!(
+            remove_international_dialing_code("+551635014415"),
+            "1635014415"
+        );
+        // The leading '+' must not survive: it's part of the dialing code,
+        // not the national number.
+        assert_eq!(
             remove_international_dialing_code("+5511994029275"),
-            "+11994029275"
+            "11994029275"
         );
 
         // Should not remove if length is 11 or less

@@ -33,7 +33,7 @@ Esta biblioteca fornece utilitários abrangentes para manipular documentos, iden
 #### 🏛️ Legal e Administrativo
 
 - **Processo Judicial** - Números de processo do sistema jurídico brasileiro
-- **Natureza Jurídica** - Classificação de entidades jurídicas (60+ códigos oficiais)
+- **Natureza Jurídica** - Classificação de entidades jurídicas (92 códigos oficiais, Natureza Jurídica 2021)
 
 #### 📍 Localização e Comunicação
 
@@ -242,7 +242,7 @@ assert_eq!(texto, Some("15 de janeiro de 2024".to_string()));
 | `currency` | `format_currency`, `convert_real_to_text`, `number_to_words` | Formatação e conversão de moeda |
 | `date_utils` | `is_holiday`, `convert_date_to_text` | Utilitários de data e verificação de feriados |
 | `email` | `is_valid` | Validação de email RFC 5322 |
-| `legal_nature` | `is_valid`, `get_description`, `list_all` | Códigos de natureza jurídica (60+ códigos) |
+| `legal_nature` | `is_valid`, `get_description`, `list_all` | Códigos de natureza jurídica (92 códigos, Natureza Jurídica 2021) |
 | `legal_process` | `is_valid`, `format_legal_process`, `remove_symbols`, `generate` | Validação de número de processo |
 | `license_plate` | `is_valid`, `format_license_plate`, `remove_symbols`, `convert_to_mercosul`, `get_format`, `generate` | Placa de veículo (antiga/Mercosul) |
 | `phone` | `is_valid`, `format_phone`, `remove_symbols`, `generate`, `remove_international_dialing_code` | Validação de telefone |
@@ -545,7 +545,7 @@ assert_eq!(text, Some("15 de janeiro de 2024".to_string()));
 | `currency` | `format_currency`, `convert_real_to_text`, `number_to_words` | Currency formatting and text conversion |
 | `date_utils` | `is_holiday`, `convert_date_to_text` | Date utilities and holiday checking |
 | `email` | `is_valid` | RFC 5322 email validation |
-| `legal_nature` | `is_valid`, `get_description`, `list_all` | Legal entity nature codes (60+ codes) |
+| `legal_nature` | `is_valid`, `get_description`, `list_all` | Legal entity nature codes (92 codes, Natureza Jurídica 2021) |
 | `legal_process` | `is_valid`, `format_legal_process`, `remove_symbols`, `generate` | Legal process number validation |
 | `license_plate` | `is_valid`, `format_license_plate`, `remove_symbols`, `convert_to_mercosul`, `get_format`, `generate` | Vehicle license plate (old/Mercosul) |
 | `phone` | `is_valid`, `format_phone`, `remove_symbols`, `generate`, `remove_international_dialing_code` | Phone number validation |

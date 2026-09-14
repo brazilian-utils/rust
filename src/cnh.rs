@@ -20,8 +20,8 @@
 ///
 /// assert_eq!(is_valid_cnh("12345678901"), false);
 /// assert_eq!(is_valid_cnh("A2C45678901"), false);
-/// assert_eq!(is_valid_cnh("98765432100"), true);
-/// assert_eq!(is_valid_cnh("987654321-00"), true);
+/// assert_eq!(is_valid_cnh("98765432109"), true);
+/// assert_eq!(is_valid_cnh("987654321-09"), true);
 /// ```
 pub fn is_valid_cnh(cnh: &str) -> bool {
     // Clean the input and check for numbers only
@@ -52,34 +52,45 @@ pub fn is_valid_cnh(cnh: &str) -> bool {
     let first_verificator = digits[9];
     let second_verificator = digits[10];
 
+    // The decrement below the 11th digit depends on the *raw* remainder of the
+    // first checksum (which can be 10), not on the printed 10th digit (0-9
+    // after clamping). Keeping both around is what makes the DENATRAN
+    // decrement rule reachable.
+    let first_remainder = compute_first_remainder(&digits);
+
     // Checking the 10th digit
-    if !check_first_verificator(&digits, first_verificator) {
+    if !check_first_verificator(first_remainder, first_verificator) {
         return false;
     }
 
     // Checking the 11th digit
-    check_second_verificator(&digits, second_verificator, first_verificator)
+    check_second_verificator(&digits, second_verificator, first_remainder)
 }
 
-/// Generates the first verification digit and uses it to verify the 10th digit of the CNH
-fn check_first_verificator(digits: &[u32], first_verificator: u32) -> bool {
+/// Computes the raw remainder (0-10) used to derive the 10th digit of the CNH.
+fn compute_first_remainder(digits: &[u32]) -> u32 {
     let mut sum = 0;
     for (i, &digit) in digits.iter().enumerate().take(9) {
         sum += digit * (9 - i as u32);
     }
 
-    let remainder = sum % 11;
-    let result = if remainder > 9 { 0 } else { remainder };
+    sum % 11
+}
+
+/// Uses the first checksum's raw remainder to verify the 10th digit of the CNH
+fn check_first_verificator(first_remainder: u32, first_verificator: u32) -> bool {
+    let result = if first_remainder > 9 { 0 } else { first_remainder };
 
     result == first_verificator
 }
 
 /// Generates the second verification and uses it to verify the 11th digit of the CNH
-fn check_second_verificator(
-    digits: &[u32],
-    second_verificator: u32,
-    first_verificator: u32,
-) -> bool {
+///
+/// `first_remainder` must be the *raw* remainder of the first checksum (0-10),
+/// not the printed 10th digit: per the DENATRAN algorithm, whenever that
+/// remainder is 10 (printed as 0), the second checksum is decremented by 2
+/// (wrapping around 11 if negative).
+fn check_second_verificator(digits: &[u32], second_verificator: u32, first_remainder: u32) -> bool {
     let mut sum = 0;
     for (i, &digit) in digits.iter().enumerate().take(9) {
         sum += digit * (i as u32 + 1);
@@ -87,7 +98,7 @@ fn check_second_verificator(
 
     let mut result = sum % 11;
 
-    if first_verificator > 9 {
+    if first_remainder >= 10 {
         result = if (result as i32 - 2) < 0 {
             result + 9
         } else {
@@ -128,11 +139,16 @@ mod tests {
 
         // Valid with formatting
         assert!(is_valid_cnh("097703047-34"));
-        assert!(is_valid_cnh("987654321-00"));
+        assert!(is_valid_cnh("987654321-09"));
 
         // Valid without formatting
         assert!(is_valid_cnh("09770304734"));
-        assert!(is_valid_cnh("98765432100"));
+        assert!(is_valid_cnh("98765432109"));
+
+        // "98765432100" was mistakenly treated as valid before the decrement
+        // fix (the first checksum's raw remainder here is 10, so the second
+        // checksum must be decremented by 2 mod 11, giving 9 - not 0).
+        assert!(!is_valid_cnh("98765432100"));
 
         // Additional test cases - invalid checksum
         assert!(!is_valid_cnh("12345678901"));
@@ -147,10 +163,11 @@ mod tests {
     fn test_check_first_verificator() {
         // Test with valid CNH: 09770304734
         let digits = vec![0, 9, 7, 7, 0, 3, 0, 4, 7, 3, 4];
-        assert!(check_first_verificator(&digits, 3));
+        let remainder = compute_first_remainder(&digits);
+        assert!(check_first_verificator(remainder, 3));
 
         // Test with invalid first verificator
-        assert!(!check_first_verificator(&digits, 5));
+        assert!(!check_first_verificator(remainder, 5));
     }
 
     #[test]
@@ -187,5 +204,16 @@ mod tests {
         let digits = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0];
         // Just make sure it doesn't panic
         let _ = check_second_verificator(&digits, 0, 10);
+    }
+
+    #[test]
+    fn test_is_valid_cnh_decrement_rule() {
+        // Regression test for the DENATRAN decrement rule: when the raw
+        // remainder of the first checksum is 10 (so the printed 10th digit
+        // is 0), the second checksum must be decremented by 2. Before the
+        // fix, is_valid_cnh compared against the printed digit (always 0-9)
+        // instead of the raw remainder, so this branch was unreachable and
+        // valid CNHs like this one were rejected.
+        assert!(is_valid_cnh("10433218109"));
     }
 }

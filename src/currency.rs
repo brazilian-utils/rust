@@ -8,7 +8,7 @@ const TENS_TEENS: &[&str] = &[
     "onze",
     "doze",
     "treze",
-    "catorze",
+    "quatorze",
     "quinze",
     "dezesseis",
     "dezessete",
@@ -84,7 +84,14 @@ pub fn number_to_words(n: i64) -> String {
             return quadrillion_text;
         }
 
-        let connector = if remainder < 100 { " e " } else { ", " };
+        // Lei 14.822/2024 (LOA), art. 1o: no comma between groups; "e" only
+        // joins the last group when it is < 100 or a round hundred (e.g.
+        // "mil e quatrocentos reais", "mil quinhentos e dezoito reais").
+        let connector = if remainder < 100 || remainder % 100 == 0 {
+            " e "
+        } else {
+            " "
+        };
         return format!(
             "{}{}{}",
             quadrillion_text,
@@ -108,7 +115,14 @@ pub fn number_to_words(n: i64) -> String {
             return trillion_text;
         }
 
-        let connector = if remainder < 100 { " e " } else { ", " };
+        // Lei 14.822/2024 (LOA), art. 1o: no comma between groups; "e" only
+        // joins the last group when it is < 100 or a round hundred (e.g.
+        // "mil e quatrocentos reais", "mil quinhentos e dezoito reais").
+        let connector = if remainder < 100 || remainder % 100 == 0 {
+            " e "
+        } else {
+            " "
+        };
         return format!(
             "{}{}{}",
             trillion_text,
@@ -132,7 +146,14 @@ pub fn number_to_words(n: i64) -> String {
             return billion_text;
         }
 
-        let connector = if remainder < 100 { " e " } else { ", " };
+        // Lei 14.822/2024 (LOA), art. 1o: no comma between groups; "e" only
+        // joins the last group when it is < 100 or a round hundred (e.g.
+        // "mil e quatrocentos reais", "mil quinhentos e dezoito reais").
+        let connector = if remainder < 100 || remainder % 100 == 0 {
+            " e "
+        } else {
+            " "
+        };
         return format!(
             "{}{}{}",
             billion_text,
@@ -156,7 +177,14 @@ pub fn number_to_words(n: i64) -> String {
             return million_text;
         }
 
-        let connector = if remainder < 100 { " e " } else { ", " };
+        // Lei 14.822/2024 (LOA), art. 1o: no comma between groups; "e" only
+        // joins the last group when it is < 100 or a round hundred (e.g.
+        // "mil e quatrocentos reais", "mil quinhentos e dezoito reais").
+        let connector = if remainder < 100 || remainder % 100 == 0 {
+            " e "
+        } else {
+            " "
+        };
         return format!(
             "{}{}{}",
             million_text,
@@ -180,11 +208,12 @@ pub fn number_to_words(n: i64) -> String {
             return thousand_text;
         }
 
-        // Use "e" for round hundreds (100, 200, 300, etc.), otherwise use ","
+        // Use "e" for round hundreds (100, 200, 300, etc.) or remainders < 100;
+        // no comma between groups (Lei 14.822/2024).
         let connector = if remainder % 100 == 0 || remainder < 100 {
             " e "
         } else {
-            ", "
+            " "
         };
         return format!(
             "{}{}{}",
@@ -341,7 +370,7 @@ fn format_with_thousands_separator(mut num: i64) -> String {
 /// ```
 pub fn convert_real_to_text(value: f64) -> String {
     if value == 0.0 || value.abs() < 0.005 {
-        return "zero real".to_string();
+        return "zero reais".to_string();
     }
 
     let is_negative = value < 0.0;
@@ -498,7 +527,7 @@ mod tests {
     fn test_number_to_words_thousands() {
         assert_eq!(number_to_words(1000), "mil");
         assert_eq!(number_to_words(1001), "mil e um");
-        assert_eq!(number_to_words(1111), "mil, cento e onze");
+        assert_eq!(number_to_words(1111), "mil cento e onze");
         assert_eq!(number_to_words(2000), "dois mil");
         assert_eq!(number_to_words(2500), "dois mil e quinhentos");
         assert_eq!(number_to_words(10000), "dez mil");
@@ -524,7 +553,7 @@ mod tests {
 
     #[test]
     fn test_convert_real_to_text_basic() {
-        assert_eq!(convert_real_to_text(0.0), "zero real");
+        assert_eq!(convert_real_to_text(0.0), "zero reais");
         assert_eq!(convert_real_to_text(1.0), "um real");
         assert_eq!(convert_real_to_text(2.0), "dois reais");
         assert_eq!(convert_real_to_text(10.0), "dez reais");
@@ -572,8 +601,8 @@ mod tests {
     fn test_convert_real_to_text_complex() {
         assert_eq!(
             convert_real_to_text(1111.11),
-            "mil, cento e onze reais e onze centavos"
+            "mil cento e onze reais e onze centavos"
         );
-        assert_eq!(convert_real_to_text(123456.78), "cento e vinte e três mil, quatrocentos e cinquenta e seis reais e setenta e oito centavos");
+        assert_eq!(convert_real_to_text(123456.78), "cento e vinte e três mil quatrocentos e cinquenta e seis reais e setenta e oito centavos");
     }
 }

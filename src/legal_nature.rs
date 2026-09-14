@@ -5,9 +5,13 @@
 ///
 /// The codes and descriptions in this module are sourced from the official
 /// **Tabela de Natureza Jurídica** (RFB), as provided in the document used
-/// by the Cadastro Nacional (e.g., FCN).
+/// by the Cadastro Nacional (e.g., FCN), updated with the codes added by the
+/// CONCLA/IBGE **Natureza Jurídica 2021** revision.
 ///
-/// Source: https://www.gov.br/empresas-e-negocios/pt-br/drei/links-e-downloads/arquivos/TABELADENATUREZAJURDICA.pdf
+/// Sources:
+/// - <https://www.gov.br/empresas-e-negocios/pt-br/drei/links-e-downloads/arquivos/TABELADENATUREZAJURDICA.pdf>
+/// - <https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021>
+/// - <https://tabelas.maino.com.br/codigos-de-natureza-juridica> (2021 table mirror)
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -44,6 +48,21 @@ fn legal_nature_table() -> &'static HashMap<&'static str, &'static str> {
             "Órgão Público Autônomo Estadual ou do Distrito Federal",
         );
         map.insert("1180", "Órgão Público Autônomo Municipal");
+        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
+        map.insert("1198", "Comissão Polinacional");
+        map.insert(
+            "1210",
+            "Consórcio Público de Direito Público (Associação Pública)",
+        );
+        map.insert("1236", "Estado ou Distrito Federal");
+        map.insert("1244", "Município");
+        map.insert("1252", "Fundação Pública de Direito Privado Federal");
+        map.insert(
+            "1279",
+            "Fundação Pública de Direito Privado Municipal",
+        );
+        map.insert("1333", "Fundo Público da Administração Direta Municipal");
+        map.insert("1341", "União");
 
         // 2. ENTIDADES EMPRESARIAIS
         map.insert("2011", "Empresa Pública");
@@ -80,6 +99,11 @@ fn legal_nature_table() -> &'static HashMap<&'static str, &'static str> {
         map.insert("2267", "Sociedade em Comandita Simples");
         map.insert("2275", "Sociedade Simples em Conta de Participação");
         map.insert("2305", "Empresa Individual de Responsabilidade Limitada");
+        map.insert(
+            "2313",
+            "Empresa Individual de Responsabilidade Limitada (de Natureza Simples)",
+        );
+        map.insert("2356", "Investidor Não Residente");
 
         // 3. ENTIDADES SEM FINS LUCRATIVOS
         map.insert("3034", "Serviço Notarial e Registral (Cartório)");
@@ -107,18 +131,33 @@ fn legal_nature_table() -> &'static HashMap<&'static str, &'static str> {
             "Estabelecimento, no Brasil, de Fundação ou Associação Estrangeiras",
         );
         map.insert("3212", "Fundação ou Associação Domiciliada no Exterior");
-        map.insert("3999", "Outras Formas de Associação");
+        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
+        map.insert("3271", "Órgão de Direção Local de Partido Político");
+        map.insert("3280", "Comitê Financeiro de Partido Político");
+        map.insert("3310", "Demais Condomínios");
+        map.insert(
+            "3328",
+            "Plano de Benefícios de Previdência Complementar Fechada",
+        );
+        // 2021 renamed this from "Outras Formas de Associação" to "Associação
+        // Privada" (see https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021/33897-2021-399-9-associacao-privada).
+        map.insert("3999", "Associação Privada");
 
         // 4. PESSOAS FÍSICAS
         map.insert("4014", "Empresa Individual Imobiliária");
         map.insert("4022", "Segurado Especial");
         map.insert("4081", "Contribuinte individual");
+        // Code added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
+        map.insert("4111", "Leiloeiro");
 
         // 5. ORGANIZAÇÕES INTERNACIONAIS E OUTRAS INSTITUIÇÕES EXTRATERRITORIAIS
         map.insert(
             "5002",
             "Organização Internacional e Outras Instituições Extraterritoriais",
         );
+        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
+        map.insert("5029", "Representação Diplomática Estrangeira");
+        map.insert("5037", "Outras Instituições Extraterritoriais");
 
         map
     })
@@ -253,6 +292,25 @@ mod tests {
         assert!(is_valid("3212")); // Fundação no Exterior
         assert!(is_valid("4014")); // Pessoas Físicas
         assert!(is_valid("5002")); // Organizações Internacionais
+    }
+
+    #[test]
+    fn test_is_valid_2021_codes() {
+        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE)
+        // that were missing from the pre-2021 table.
+        for code in [
+            "1198", "1210", "1236", "1244", "1252", "1279", "1333", "1341", "2313", "2356",
+            "3271", "3280", "3310", "3328", "4111", "5029", "5037",
+        ] {
+            assert!(is_valid(code), "{code} should be a valid 2021 code");
+        }
+    }
+
+    #[test]
+    fn test_get_description_3999_is_2021_associacao_privada() {
+        // The 2021 table renamed 399-9 from "Outras Formas de Associação" to
+        // "Associação Privada".
+        assert_eq!(get_description("3999"), Some("Associação Privada"));
     }
 
     #[test]

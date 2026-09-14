@@ -51,8 +51,8 @@ fn main() {
     println!("\n   Invalid examples:");
     let invalid_numbers = vec![
         ("123", "Too short"),
-        ("11894029275", "Missing '9' for mobile"),
-        ("1665014415", "Invalid landline prefix"),
+        ("23994029275", "23 is not a real DDD"),
+        ("1615014415", "1 is not a valid identifier digit"),
         ("119940292751", "Too long"),
     ];
 
@@ -133,20 +133,20 @@ fn main() {
     println!("6. Phone Number Formats:");
     println!("   Mobile (11 digits):");
     println!("   ┌────────────────────┐");
-    println!("   │ (DD) 9XXXX-XXXX    │  DDD + 9 + 8 digits");
+    println!("   │ (DD) [7-9]XXXX-XXXX│  DDD + [7-9] + 8 digits");
     println!("   │ (11) 99402-9275    │  Example");
     println!("   └────────────────────┘");
-    println!("   - DD: Area code (DDD) - both digits 1-9");
-    println!("   - 9: Mobile identifier (always 9)");
+    println!("   - DD: Area code (DDD) - one of the 67 real Anatel codes");
+    println!("   - [7-9]: Mobile identifier (only 9 is issued today, per Res. Anatel 749/2022)");
     println!("   - XXXX-XXXX: Subscriber number");
     println!();
     println!("   Landline (10 digits):");
     println!("   ┌────────────────────┐");
-    println!("   │ (DD) [2-5]XXX-XXXX │  DDD + [2-5] + 7 digits");
+    println!("   │ (DD) [2-6]XXX-XXXX │  DDD + [2-6] + 7 digits");
     println!("   │ (16) 3501-4415     │  Example");
     println!("   └────────────────────┘");
-    println!("   - DD: Area code (DDD) - both digits 1-9");
-    println!("   - [2-5]: Landline identifier (2, 3, 4, or 5)");
+    println!("   - DD: Area code (DDD) - one of the 67 real Anatel codes");
+    println!("   - [2-6]: Landline identifier (2 to 6)");
     println!("   - XXX-XXXX: Subscriber number");
     println!();
     println!("7. DDD (Area Codes) Examples:");

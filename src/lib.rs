@@ -201,8 +201,8 @@ mod tests {
         assert_eq!(legal_process::format_legal_process("123"), None);
 
         // Test is_valid
-        assert!(legal_process::is_valid("10188748220234018200"));
-        assert!(legal_process::is_valid("45532346920234025107"));
+        assert!(legal_process::is_valid("10188748320234018200"));
+        assert!(legal_process::is_valid("45532347020234025107"));
         assert!(!legal_process::is_valid("00000000000000000000"));
         assert!(!legal_process::is_valid("123"));
 

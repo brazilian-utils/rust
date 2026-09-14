@@ -302,16 +302,7 @@ pub fn get_cep_information_from_address(
         return Ok(None);
     }
 
-    let base_api_url = "https://viacep.com.br/ws/{}/{}/{}/json/";
-
-    // Normalize strings: remove accents and replace spaces with %20
-    let parsed_city = normalize_string(city);
-    let parsed_street = normalize_string(street);
-
-    let url = base_api_url
-        .replace("{}", &federal_unit_upper)
-        .replacen("{}", &parsed_city, 1)
-        .replacen("{}", &parsed_street, 1);
+    let url = build_address_search_url(&federal_unit_upper, city, street);
 
     match reqwest::blocking::get(&url) {
         Ok(response) => {
@@ -341,6 +332,22 @@ pub fn get_cep_information_from_address(
 
 // HELPER FUNCTIONS
 // ================
+
+/// Builds the ViaCEP "search by address" URL.
+///
+/// Built with `format!` on purpose: chaining `str::replace("{}", ...)` per
+/// placeholder is wrong here, because `replace` substitutes *every*
+/// occurrence on its first call — the UF would fill all three placeholders
+/// and the request would go to `/ws/{uf}/{uf}/{uf}/json/` instead of
+/// `/ws/{uf}/{city}/{street}/json/`.
+fn build_address_search_url(uf: &str, city: &str, street: &str) -> String {
+    format!(
+        "https://viacep.com.br/ws/{}/{}/{}/json/",
+        uf,
+        normalize_string(city),
+        normalize_string(street)
+    )
+}
 
 /// Normalizes a string by removing accents and replacing spaces with %20
 fn normalize_string(s: &str) -> String {
@@ -414,6 +421,20 @@ mod tests {
             assert!(is_valid(&cep));
             assert!(cep.chars().all(|c| c.is_ascii_digit()));
         }
+    }
+
+    #[test]
+    fn test_build_address_search_url() {
+        // Regression test: UF, city and street must each land in their own
+        // placeholder, not have the UF overwrite all three.
+        assert_eq!(
+            build_address_search_url("SP", "São Paulo", "Avenida Paulista"),
+            "https://viacep.com.br/ws/SP/Sao%20Paulo/Avenida%20Paulista/json/"
+        );
+        assert_eq!(
+            build_address_search_url("RJ", "Rio de Janeiro", "Copacabana"),
+            "https://viacep.com.br/ws/RJ/Rio%20de%20Janeiro/Copacabana/json/"
+        );
     }
 
     #[test]
