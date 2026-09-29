@@ -1,3 +1,109 @@
+use rand::Rng;
+
+/// Applies a grouped mask to a digit string, as far as the digits go.
+fn apply_grouped_mask(digits: &str, group_sizes: &[usize], separators: &[&str]) -> String {
+    let mut result = String::new();
+    let mut pos = 0;
+
+    for (i, &size) in group_sizes.iter().enumerate() {
+        if pos >= digits.len() {
+            break;
+        }
+        let end = (pos + size).min(digits.len());
+        result.push_str(&digits[pos..end]);
+        pos = end;
+
+        if pos >= digits.len() {
+            break;
+        }
+        if i < separators.len() {
+            result.push_str(separators[i]);
+        }
+    }
+
+    result
+}
+
+/// Formats a CNH number as `000000000-00` (9 digits, hyphen, 2 check digits).
+///
+/// The mask is applied as far as the digits go.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cnh::format;
+///
+/// assert_eq!(format("00000000119"), "000000001-19");
+/// assert_eq!(format("0000000011"), "000000001-1");
+/// assert_eq!(format(""), "");
+/// ```
+pub fn format(value: &str) -> String {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    apply_grouped_mask(&digits, &[9, 2], &["-"])
+}
+
+/// Removes CNH formatting and keeps only digits, capped to 11 digits.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cnh::parse;
+///
+/// assert_eq!(parse("000000001-19"), "00000000119");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(11)
+        .collect()
+}
+
+/// Generates a random valid CNH number: 11 digits, unformatted.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cnh::{generate, is_valid_cnh};
+///
+/// let cnh = generate();
+/// assert_eq!(cnh.len(), 11);
+/// assert!(is_valid_cnh(&cnh));
+/// ```
+pub fn generate() -> String {
+    let mut rng = rand::thread_rng();
+    loop {
+        let base: Vec<u32> = (0..9).map(|_| rng.gen_range(0..=9)).collect();
+
+        // Reject a base whose (would-be) 11 digits are all the same.
+        if base.iter().all(|&d| d == base[0]) {
+            continue;
+        }
+
+        let first_remainder = compute_first_remainder(&base);
+        let first_verificator = if first_remainder > 9 { 0 } else { first_remainder };
+
+        let mut sum = 0;
+        for (i, &digit) in base.iter().enumerate() {
+            sum += digit * (i as u32 + 1);
+        }
+        let mut second_verificator = sum % 11;
+        if first_remainder >= 10 {
+            second_verificator = if (second_verificator as i32 - 2) < 0 {
+                second_verificator + 9
+            } else {
+                second_verificator - 2
+            };
+        }
+        if second_verificator > 9 {
+            second_verificator = 0;
+        }
+
+        let base_str: String = base.iter().map(|d| d.to_string()).collect();
+        return format!("{}{}{}", base_str, first_verificator, second_verificator);
+    }
+}
+
 /// Validates the registration number for the Brazilian CNH (Carteira Nacional de Habilitação)
 /// that was created in 2022.
 ///
@@ -204,6 +310,32 @@ mod tests {
         let digits = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0];
         // Just make sure it doesn't panic
         let _ = check_second_verificator(&digits, 0, 10);
+    }
+
+    #[test]
+    fn test_format() {
+        assert_eq!(format("00000000119"), "000000001-19");
+        assert_eq!(format("000.000.001-19"), "000000001-19");
+        assert_eq!(format("0000000011"), "000000001-1");
+        assert_eq!(format(""), "");
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("000000001-19"), "00000000119");
+        assert_eq!(parse("00000000119"), "00000000119");
+        assert_eq!(parse("000.abc000001-19"), "00000000119");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("00000000119123"), "00000000119");
+    }
+
+    #[test]
+    fn test_generate() {
+        for _ in 0..50 {
+            let cnh = generate();
+            assert_eq!(cnh.len(), 11);
+            assert!(is_valid_cnh(&cnh));
+        }
     }
 
     #[test]

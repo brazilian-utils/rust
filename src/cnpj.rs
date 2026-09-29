@@ -55,7 +55,7 @@ pub fn remove_symbols(dirty: &str) -> String {
 /// assert_eq!(format_cnpj("98765432100100"), None);
 /// ```
 pub fn format_cnpj(cnpj: &str) -> Option<String> {
-    if !is_valid(cnpj) {
+    if !is_valid(cnpj, None) {
         return None;
     }
 
@@ -67,6 +67,33 @@ pub fn format_cnpj(cnpj: &str) -> Option<String> {
         &cnpj[8..12],
         &cnpj[12..14]
     ))
+}
+
+/// Removes CNPJ formatting and returns the normalized value (digits only),
+/// capped to 14 characters.
+///
+/// # Arguments
+///
+/// * `value` - A CNPJ string that may contain formatting symbols or other characters.
+///
+/// # Returns
+///
+/// A string with only the digits of `value`, capped to 14 characters.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cnpj::parse;
+///
+/// assert_eq!(parse("46.843.485/0001-86"), "46843485000186");
+/// assert_eq!(parse("46843485000186123"), "46843485000186");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(14)
+        .collect()
 }
 
 // OPERATIONS
@@ -113,6 +140,73 @@ pub fn validate(cnpj: &str) -> bool {
         && cnpj.chars().nth(13).unwrap().to_digit(10).unwrap() == digit_14 as u32
 }
 
+/// The 12-character alphanumeric weights (positions 0-11) used to compute
+/// the first check digit of a v2 (IN RFB 2.119) CNPJ.
+const ALNUM_WEIGHTS_1: [u32; 12] = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+/// The 13-character alphanumeric weights (positions 0-12, i.e. including the
+/// just-computed first check digit) used to compute the second check digit
+/// of a v2 (IN RFB 2.119) CNPJ.
+const ALNUM_WEIGHTS_2: [u32; 13] = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+/// The alphanumeric alphabet used by the base of a v2 CNPJ.
+const ALNUM_ALPHABET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/// Value of a single alphanumeric CNPJ character: `ascii_code - 48`, so
+/// `'0'..'9'` map to `0..9` and `'A'..'Z'` map to `17..42`. Returns `None` for
+/// anything outside `0-9A-Z` (the caller must upper-case first).
+fn alnum_char_value(c: char) -> Option<u32> {
+    if c.is_ascii_digit() || ('A'..='Z').contains(&c) {
+        Some(c as u32 - '0' as u32)
+    } else {
+        None
+    }
+}
+
+/// Computes a modulus-11 check digit over `chars`, weighted by `weights`
+/// (same rule as [`hashdigit`], generalized to alphanumeric characters).
+fn alnum_check_digit(chars: &[char], weights: &[u32]) -> u32 {
+    let sum: u32 = chars
+        .iter()
+        .zip(weights.iter())
+        .map(|(c, w)| alnum_char_value(*c).unwrap_or(0) * w)
+        .sum();
+    let remainder = sum % 11;
+    if remainder < 2 {
+        0
+    } else {
+        11 - remainder
+    }
+}
+
+/// Validates a 14-character CNPJ under the v2 (IN RFB 2.119) alphanumeric
+/// format: the first 12 characters may be digits or uppercase letters, and
+/// the 2 check digits (always numeric) are a modulus-11 checksum over the
+/// preceding characters, treating each as `ascii_code - 48`.
+fn is_valid_checksum_alnum(cnpj: &str) -> bool {
+    if cnpj.len() != SIZE {
+        return false;
+    }
+
+    let upper: Vec<char> = cnpj.chars().map(|c| c.to_ascii_uppercase()).collect();
+    if !upper
+        .iter()
+        .all(|c| c.is_ascii_digit() || ('A'..='Z').contains(c))
+    {
+        return false;
+    }
+
+    // The check digits themselves are always numeric.
+    if !upper[12].is_ascii_digit() || !upper[13].is_ascii_digit() {
+        return false;
+    }
+
+    let dv1 = alnum_check_digit(&upper[0..12], &ALNUM_WEIGHTS_1);
+    let dv2 = alnum_check_digit(&upper[0..13], &ALNUM_WEIGHTS_2);
+
+    upper[12].to_digit(10) == Some(dv1) && upper[13].to_digit(10) == Some(dv2)
+}
+
 /// Returns whether or not the verifying checksum digits of the given CNPJ
 /// match its base number.
 ///
@@ -121,7 +215,10 @@ pub fn validate(cnpj: &str) -> bool {
 ///
 /// # Arguments
 ///
-/// * `cnpj` - The CNPJ to be validated, a 14-digit string.
+/// * `cnpj` - The CNPJ to be validated, a 14-character string.
+/// * `version` - The CNPJ format: `1` (the default, numeric-only) or `2`
+///   (the alphanumeric format of IN RFB 2.119, which additionally accepts
+///   uppercase letters in the first 12 characters).
 ///
 /// # Returns
 ///
@@ -132,37 +229,20 @@ pub fn validate(cnpj: &str) -> bool {
 /// ```
 /// use brazilian_utils::cnpj::is_valid;
 ///
-/// assert_eq!(is_valid("03560714000142"), true);
-/// assert_eq!(is_valid("00111222000133"), false);
+/// assert_eq!(is_valid("03560714000142", None), true);
+/// assert_eq!(is_valid("00111222000133", None), false);
 /// ```
-pub fn is_valid(cnpj: &str) -> bool {
-    validate(cnpj)
+pub fn is_valid(cnpj: &str, version: Option<u8>) -> bool {
+    match version.unwrap_or(1) {
+        2 => is_valid_checksum_alnum(cnpj),
+        _ => validate(cnpj),
+    }
 }
 
-/// Generates a random valid CNPJ digit string.
+/// Generates a random valid numeric (v1) CNPJ digit string.
 ///
 /// An optional branch number parameter can be given; it defaults to 1.
-///
-/// # Arguments
-///
-/// * `branch` - An optional branch number to be included in the CNPJ.
-///
-/// # Returns
-///
-/// A randomly generated valid CNPJ string.
-///
-/// # Examples
-///
-/// ```
-/// use brazilian_utils::cnpj::{generate, is_valid};
-///
-/// let cnpj = generate(Some(1));
-/// assert!(is_valid(&cnpj));
-///
-/// let cnpj2 = generate(None);
-/// assert!(is_valid(&cnpj2));
-/// ```
-pub fn generate(branch: Option<u32>) -> String {
+fn generate_numeric(branch: Option<u32>) -> String {
     let mut rng = rand::thread_rng();
 
     let mut branch_num = branch.unwrap_or(1);
@@ -177,6 +257,76 @@ pub fn generate(branch: Option<u32>) -> String {
 
     let checksum = compute_checksum(&base);
     format!("{}{}", base, checksum)
+}
+
+/// Computes the 2 check digits for a 12-character alphanumeric CNPJ base
+/// (v2, IN RFB 2.119).
+fn compute_checksum_alnum(base12: &str) -> String {
+    let mut chars: Vec<char> = base12.chars().map(|c| c.to_ascii_uppercase()).collect();
+    let dv1 = alnum_check_digit(&chars, &ALNUM_WEIGHTS_1);
+    chars.push(std::char::from_digit(dv1, 10).unwrap());
+    let dv2 = alnum_check_digit(&chars, &ALNUM_WEIGHTS_2);
+    format!("{}{}", dv1, dv2)
+}
+
+/// Generates a random valid alphanumeric (v2, IN RFB 2.119) CNPJ string: 8
+/// random alphanumeric characters, followed by a 4-digit zero-padded branch
+/// number (1-9999, random when `branch` is not given), followed by the 2
+/// computed check digits.
+fn generate_alnum(branch: Option<u32>) -> String {
+    let mut rng = rand::thread_rng();
+
+    let base8: String = (0..8)
+        .map(|_| ALNUM_ALPHABET[rng.gen_range(0..ALNUM_ALPHABET.len())] as char)
+        .collect();
+
+    let mut branch_num = branch.unwrap_or_else(|| rng.gen_range(1..=9999));
+    branch_num %= 10000;
+    if branch_num == 0 {
+        branch_num = 1;
+    }
+    let branch_str = format!("{:04}", branch_num);
+
+    let base12 = format!("{}{}", base8, branch_str);
+    let checksum = compute_checksum_alnum(&base12);
+    format!("{}{}", base12, checksum)
+}
+
+/// Generates a random valid CNPJ digit string.
+///
+/// An optional branch number parameter can be given; it defaults to 1 for
+/// the numeric (v1) format, or a random 1-9999 branch for the alphanumeric
+/// (v2) format.
+///
+/// # Arguments
+///
+/// * `branch` - An optional branch number to be included in the CNPJ.
+/// * `version` - The CNPJ format to generate: `1` (the default, numeric-only)
+///   or `2` (the alphanumeric format of IN RFB 2.119).
+///
+/// # Returns
+///
+/// A randomly generated valid CNPJ string.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cnpj::{generate, is_valid};
+///
+/// let cnpj = generate(Some(1), None);
+/// assert!(is_valid(&cnpj, None));
+///
+/// let cnpj2 = generate(None, None);
+/// assert!(is_valid(&cnpj2, None));
+///
+/// let cnpj3 = generate(None, Some(2));
+/// assert!(is_valid(&cnpj3, Some(2)));
+/// ```
+pub fn generate(branch: Option<u32>, version: Option<u8>) -> String {
+    match version.unwrap_or(1) {
+        2 => generate_alnum(branch),
+        _ => generate_numeric(branch),
+    }
 }
 
 /// Calculates the checksum digit at the given position for the provided CNPJ.
@@ -309,46 +459,90 @@ mod tests {
     #[test]
     fn test_is_valid() {
         // When CNPJ's len is different of 14, returns False
-        assert!(!is_valid("1"));
+        assert!(!is_valid("1", None));
 
         // When CNPJ does not contain only digits, returns False
-        assert!(!is_valid("1112223334445-"));
+        assert!(!is_valid("1112223334445-", None));
 
         // When CNPJ has only the same digit, returns false
-        assert!(!is_valid("11111111111111"));
+        assert!(!is_valid("11111111111111", None));
 
         // When rest_1 is lt 2 and the 13th digit is not 0, returns False
-        assert!(!is_valid("1111111111315"));
+        assert!(!is_valid("1111111111315", None));
 
         // When rest_1 is gte 2 and the 13th digit is not (11 - rest), returns False
-        assert!(!is_valid("1111111111115"));
+        assert!(!is_valid("1111111111115", None));
 
         // When rest_2 is lt 2 and the 14th digit is not 0, returns False
-        assert!(!is_valid("11111111121205"));
+        assert!(!is_valid("11111111121205", None));
 
         // When rest_2 is gte 2 and the 14th digit is not (11 - rest), returns False
-        assert!(!is_valid("11111111113105"));
+        assert!(!is_valid("11111111113105", None));
 
         // When CNPJ is valid
-        assert!(is_valid("34665388000161"));
-        assert!(is_valid("01838723000127"));
+        assert!(is_valid("34665388000161", None));
+        assert!(is_valid("01838723000127", None));
     }
 
     #[test]
     fn test_generate() {
         // Test that generate creates valid CNPJs
         for _ in 0..1000 {
-            let cnpj = generate(None);
-            assert!(is_valid(&cnpj));
+            let cnpj = generate(None, None);
+            assert!(is_valid(&cnpj, None));
             assert_eq!(cnpj.len(), 14);
         }
 
         // Test with specific branch numbers
         for branch in [1, 100, 1234, 9999] {
-            let cnpj = generate(Some(branch));
-            assert!(is_valid(&cnpj));
+            let cnpj = generate(Some(branch), None);
+            assert!(is_valid(&cnpj, None));
             assert_eq!(cnpj.len(), 14);
         }
+    }
+
+    #[test]
+    fn test_v2_alnum_round_trip() {
+        // A v2-generated CNPJ must validate as v2.
+        for _ in 0..200 {
+            let cnpj = generate(None, Some(2));
+            assert_eq!(cnpj.len(), 14);
+            assert!(is_valid(&cnpj, Some(2)));
+        }
+
+        // Specific branch numbers still work for v2.
+        for branch in [1, 100, 1234, 9999] {
+            let cnpj = generate(Some(branch), Some(2));
+            assert!(is_valid(&cnpj, Some(2)));
+            assert_eq!(&cnpj[8..12], format!("{:04}", branch));
+        }
+    }
+
+    #[test]
+    fn test_v1_rejects_alnum() {
+        // The default (v1, numeric-only) path must keep rejecting
+        // alphanumeric strings, even ones that are valid v2 CNPJs.
+        let alnum_cnpj = generate(None, Some(2));
+        assert!(!is_valid(&alnum_cnpj, None));
+        assert!(!is_valid(&alnum_cnpj, Some(1)));
+        assert!(!is_valid("12ABC34501DE35", None));
+    }
+
+    #[test]
+    fn test_v2_checksum_matches_known_base() {
+        // Base "12ABC34501DE" (12 chars). Check digits computed by hand
+        // following the same rule as Go's `isValidChecksumAlnum` /
+        // `GenerateChecksumAlnum` (ascii_code - 48 per character, weights
+        // [5,4,3,2,9,8,7,6,5,4,3,2] then [6,5,4,3,2,9,8,7,6,5,4,3,2], mod 11):
+        // dv1 = 3, dv2 = 5, so the full CNPJ is "12ABC34501DE35".
+        let base = "12ABC34501DE";
+        let checksum = compute_checksum_alnum(base);
+        assert_eq!(checksum, "35");
+
+        let cnpj = format!("{}{}", base, checksum);
+        assert_eq!(cnpj, "12ABC34501DE35");
+        assert!(is_valid_checksum_alnum(&cnpj));
+        assert!(is_valid(&cnpj, Some(2)));
     }
 
     #[test]
@@ -370,27 +564,36 @@ mod tests {
     #[test]
     fn test_edge_cases() {
         // Empty string
-        assert!(!is_valid(""));
+        assert!(!is_valid("", None));
 
         // Too short
-        assert!(!is_valid("123456789012"));
+        assert!(!is_valid("123456789012", None));
 
         // Too long
-        assert!(!is_valid("123456789012345"));
+        assert!(!is_valid("123456789012345", None));
 
         // Contains letters
-        assert!(!is_valid("1234567890123a"));
+        assert!(!is_valid("1234567890123a", None));
 
         // All same digit
-        assert!(!is_valid("00000000000000"));
-        assert!(!is_valid("99999999999999"));
+        assert!(!is_valid("00000000000000", None));
+        assert!(!is_valid("99999999999999", None));
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("46.843.485/0001-86"), "46843485000186");
+        assert_eq!(parse("46843485000186"), "46843485000186");
+        assert_eq!(parse("46.?ABC843.485/0001-86abc"), "46843485000186");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("46843485000186123"), "46843485000186");
     }
 
     #[test]
     fn test_generate_with_zero_branch() {
         // Branch 0 should become 1
-        let cnpj = generate(Some(0));
-        assert!(is_valid(&cnpj));
+        let cnpj = generate(Some(0), None);
+        assert!(is_valid(&cnpj, None));
         // Branch should be "0001"
         assert_eq!(&cnpj[8..12], "0001");
     }
@@ -398,8 +601,8 @@ mod tests {
     #[test]
     fn test_generate_branch_modulo() {
         // Branch larger than 9999 should wrap around
-        let cnpj = generate(Some(10000));
-        assert!(is_valid(&cnpj));
+        let cnpj = generate(Some(10000), None);
+        assert!(is_valid(&cnpj, None));
         // Should wrap to 0, then become 1
         assert_eq!(&cnpj[8..12], "0001");
     }

@@ -19,8 +19,21 @@ fn main() {
     println!("   Mobile numbers:");
     let mobile_numbers = vec!["11994029275", "21987654321", "85912345678"];
 
+    let mobile_opts = || {
+        Some(phone::IsValidPhoneOptions {
+            kind: Some("mobile".to_string()),
+            mobile_version: None,
+        })
+    };
+    let landline_opts = || {
+        Some(phone::IsValidPhoneOptions {
+            kind: Some("landline".to_string()),
+            mobile_version: None,
+        })
+    };
+
     for number in mobile_numbers {
-        let is_valid = phone::is_valid(number, Some("mobile"));
+        let is_valid = phone::is_valid(number, mobile_opts());
         println!(
             "      {} -> {}",
             number,
@@ -36,7 +49,7 @@ fn main() {
     let landline_numbers = vec!["1635014415", "1133334444", "8532221111"];
 
     for number in landline_numbers {
-        let is_valid = phone::is_valid(number, Some("landline"));
+        let is_valid = phone::is_valid(number, landline_opts());
         println!(
             "      {} -> {}",
             number,
@@ -77,10 +90,8 @@ fn main() {
     ];
 
     for (number, type_name) in numbers_to_format {
-        match phone::format_phone(number) {
-            Some(formatted) => println!("   {} ({}) -> {}", number, type_name, formatted),
-            None => println!("   {} -> Invalid", number),
-        }
+        let formatted = phone::format_phone(number);
+        println!("   {} ({}) -> {}", number, type_name, formatted);
     }
     println!();
 
@@ -105,21 +116,21 @@ fn main() {
     println!("   Mobile numbers:");
     for _ in 0..3 {
         let mobile = phone::generate(Some("mobile"));
-        let formatted = phone::format_phone(&mobile).unwrap();
+        let formatted = phone::format_phone(&mobile);
         println!("      {}", formatted);
     }
 
     println!("\n   Landline numbers:");
     for _ in 0..3 {
         let landline = phone::generate(Some("landline"));
-        let formatted = phone::format_phone(&landline).unwrap();
+        let formatted = phone::format_phone(&landline);
         println!("      {}", formatted);
     }
 
     println!("\n   Random type:");
     for _ in 0..3 {
         let phone_number = phone::generate(None);
-        let formatted = phone::format_phone(&phone_number).unwrap();
+        let formatted = phone::format_phone(&phone_number);
         let phone_type = if phone_number.len() == 11 {
             "mobile"
         } else {

@@ -1,15 +1,42 @@
+pub mod area_code;
+pub mod bank;
+pub mod bank_account;
 pub mod boleto;
+pub mod caepf;
+pub mod cbo;
+pub mod cei;
 pub mod cep;
+pub mod certidao;
+pub mod cnae;
 pub mod cnh;
+pub mod cfop;
+pub mod cno;
+pub mod cns;
+pub mod csosn;
+pub mod cst;
+pub mod municipality;
+pub mod ncm;
+pub mod state;
+pub mod text;
+pub mod credit_card;
+pub mod iban;
+pub mod passport;
+pub mod registro_profissional;
+pub mod vin;
 pub mod cnpj;
 pub mod cpf;
 pub mod currency;
 pub mod date_utils;
 pub mod email;
+pub mod ie;
 pub mod legal_nature;
 pub mod legal_process;
 pub mod license_plate;
+pub mod nfe_key;
+pub mod number;
 pub mod phone;
+pub mod pix_key;
+pub mod pix_payload;
 pub mod pis;
 pub mod renavam;
 pub mod voter_id;
@@ -87,8 +114,8 @@ mod tests {
     #[test]
     fn test_cnpj_module_accessible() {
         // Test that CNPJ module functions are accessible
-        assert!(cnpj::is_valid("03560714000142"));
-        assert!(!cnpj::is_valid("00000000000000"));
+        assert!(cnpj::is_valid("03560714000142", None));
+        assert!(!cnpj::is_valid("00000000000000", None));
 
         assert_eq!(
             cnpj::format_cnpj("03560714000142"),
@@ -96,9 +123,14 @@ mod tests {
         );
         assert_eq!(cnpj::remove_symbols("03.560.714/0001-42"), "03560714000142");
 
-        let generated = cnpj::generate(None);
-        assert!(cnpj::is_valid(&generated));
+        let generated = cnpj::generate(None, None);
+        assert!(cnpj::is_valid(&generated, None));
         assert_eq!(generated.len(), 14);
+
+        // v2 (alphanumeric, IN RFB 2.119)
+        let generated_v2 = cnpj::generate(None, Some(2));
+        assert!(cnpj::is_valid(&generated_v2, Some(2)));
+        assert_eq!(generated_v2.len(), 14);
     }
 
     #[test]
@@ -106,14 +138,15 @@ mod tests {
         // Test that Currency module functions are accessible
         assert_eq!(
             currency::format_currency(1234.56),
-            Some("R$ 1.234,56".to_string())
+            Some("1.234,56".to_string())
         );
-        assert_eq!(currency::format_currency(0.0), Some("R$ 0,00".to_string()));
+        assert_eq!(currency::format_currency(0.0), Some("0,00".to_string()));
         assert_eq!(
             currency::format_currency(-9876.54),
-            Some("R$ -9.876,54".to_string())
+            Some("-9.876,54".to_string())
         );
         assert_eq!(currency::format_currency(f64::NAN), None);
+        assert_eq!(currency::parse("R$ 1.234,56"), 1234.56);
     }
 
     #[test]
@@ -129,13 +162,40 @@ mod tests {
 
         // Test is_holiday for national holidays
         let new_year = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
-        assert_eq!(date_utils::is_holiday(new_year, None), Some(true));
+        assert_eq!(
+            date_utils::is_holiday(Some(date_utils::IsHolidayParams {
+                date: Some(new_year),
+                uf: None,
+            })),
+            Some(true)
+        );
 
         let regular_day = NaiveDate::from_ymd_opt(2024, 1, 2).unwrap();
-        assert_eq!(date_utils::is_holiday(regular_day, None), Some(false));
+        assert_eq!(
+            date_utils::is_holiday(Some(date_utils::IsHolidayParams {
+                date: Some(regular_day),
+                uf: None,
+            })),
+            Some(false)
+        );
 
         // Test is_holiday with invalid UF
-        assert_eq!(date_utils::is_holiday(new_year, Some("XX")), None);
+        assert_eq!(
+            date_utils::is_holiday(Some(date_utils::IsHolidayParams {
+                date: Some(new_year),
+                uf: Some("XX".to_string()),
+            })),
+            None
+        );
+
+        // Test convert_to_words and business-day helpers
+        assert_eq!(
+            date_utils::convert_to_words("01/01/2024"),
+            "primeiro de janeiro de dois mil e vinte e quatro"
+        );
+        assert!(date_utils::is_business_day(regular_day, None));
+        assert!(!date_utils::is_business_day(new_year, None));
+        assert!(!date_utils::get_holidays(2024).is_empty());
     }
 
     #[test]
@@ -177,12 +237,20 @@ mod tests {
         assert_eq!(legal_nature::get_description("9999"), None);
 
         // Test list_all
-        let table = legal_nature::list_all();
+        let table = legal_nature::list_all(None);
         assert!(table.len() > 40);
         assert_eq!(
             table.get("2062"),
             Some(&"Sociedade Empresária Limitada".to_string())
         );
+
+        // Test get, list_by_category, format, generate, parse
+        assert!(legal_nature::get("2062").unwrap().category.code == "2");
+        assert_eq!(legal_nature::list_by_category("5", None).len(), 3);
+        assert_eq!(legal_nature::format("2062"), "206-2");
+        assert_eq!(legal_nature::parse("206-2"), "2062");
+        let generated = legal_nature::generate();
+        assert!(legal_nature::is_valid(&generated));
     }
 
     #[test]
@@ -207,9 +275,18 @@ mod tests {
         assert!(!legal_process::is_valid("123"));
 
         // Test generate
-        let id = legal_process::generate(None, Some(5));
+        let id = legal_process::generate(Some(legal_process::GenerateProcessoJuridicoParams {
+            year: None,
+            court: Some(5),
+        }));
         assert!(id.is_some());
         assert_eq!(id.unwrap().len(), 20);
+
+        // Test parse
+        assert_eq!(
+            legal_process::parse("0002080-25.2012.5.15.0049"),
+            "00020802520125150049"
+        );
     }
 
     #[test]
@@ -228,9 +305,9 @@ mod tests {
         );
 
         // Test is_valid
-        assert!(license_plate::is_valid("ABC1234", None));
-        assert!(license_plate::is_valid("ABC1D23", None));
-        assert!(!license_plate::is_valid("ABC123", None));
+        assert!(license_plate::is_valid("ABC1234"));
+        assert!(license_plate::is_valid("ABC1D23"));
+        assert!(!license_plate::is_valid("ABC123"));
 
         // Test get_format
         assert_eq!(
@@ -243,10 +320,7 @@ mod tests {
         );
 
         // Test convert_to_mercosul
-        assert_eq!(
-            license_plate::convert_to_mercosul("ABC1234"),
-            Some("ABC1C34".to_string())
-        );
+        assert_eq!(license_plate::convert_to_mercosul("ABC1234"), "ABC1C34");
 
         // Test generate
         let plate = license_plate::generate(None);
@@ -262,20 +336,19 @@ mod tests {
         // Test is_valid
         assert!(phone::is_valid("11994029275", None));
         assert!(phone::is_valid("1635014415", None));
-        assert!(phone::is_valid("11994029275", Some("mobile")));
-        assert!(phone::is_valid("1635014415", Some("landline")));
         assert!(!phone::is_valid("123", None));
 
+        // Test is_valid_mobile / is_valid_landline / is_valid_service
+        assert!(phone::is_valid_mobile("11994029275", None));
+        assert!(phone::is_valid_landline("1635014415"));
+        assert!(phone::is_valid_service("0800 123 4567"));
+
         // Test format_phone
-        assert_eq!(
-            phone::format_phone("11994029275"),
-            Some("(11)99402-9275".to_string())
-        );
-        assert_eq!(
-            phone::format_phone("1635014415"),
-            Some("(16)3501-4415".to_string())
-        );
-        assert_eq!(phone::format_phone("123"), None);
+        assert_eq!(phone::format_phone("988887777"), "98888-7777");
+        assert_eq!(phone::format_phone(""), "");
+
+        // Test parse
+        assert_eq!(phone::parse("(11) 98888-7777"), "11988887777");
 
         // Test remove_international_dialing_code
         assert_eq!(

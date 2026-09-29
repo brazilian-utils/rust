@@ -140,26 +140,55 @@ fn calculate_easter(year: i32) -> NaiveDate {
 /// # Examples
 ///
 /// ```
-/// use brazilian_utils::date_utils::is_holiday;
+/// use brazilian_utils::date_utils::{is_holiday, IsHolidayParams};
 /// use chrono::NaiveDate;
 ///
 /// // New Year's Day
-/// assert_eq!(is_holiday(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), None), Some(true));
+/// assert_eq!(is_holiday(Some(IsHolidayParams {
+///     date: Some(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()),
+///     uf: None,
+/// })), Some(true));
 ///
 /// // Regular day
-/// assert_eq!(is_holiday(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(), None), Some(false));
+/// assert_eq!(is_holiday(Some(IsHolidayParams {
+///     date: Some(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap()),
+///     uf: None,
+/// })), Some(false));
 ///
 /// // Independence Day (Bahia state holiday)
-/// assert_eq!(is_holiday(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("BA")), Some(true));
+/// assert_eq!(is_holiday(Some(IsHolidayParams {
+///     date: Some(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap()),
+///     uf: Some("BA".to_string()),
+/// })), Some(true));
 ///
 /// // Invalid UF
-/// assert_eq!(is_holiday(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), Some("XX")), None);
+/// assert_eq!(is_holiday(Some(IsHolidayParams {
+///     date: Some(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()),
+///     uf: Some("XX".to_string()),
+/// })), None);
 /// ```
-pub fn is_holiday(target_date: NaiveDate, uf: Option<&str>) -> Option<bool> {
+/// Parameters for [`is_holiday`].
+#[derive(Debug, Clone, Default)]
+pub struct IsHolidayParams {
+    /// The date to check. Defaults to today (local date) when omitted.
+    pub date: Option<NaiveDate>,
+    /// The state abbreviation (UF) whose state holidays also count. An
+    /// unknown code makes `is_holiday` return `None` (mirrors the previous
+    /// two-argument behavior); omitted, only national holidays are checked.
+    pub uf: Option<String>,
+}
+
+pub fn is_holiday(options: Option<IsHolidayParams>) -> Option<bool> {
     const VALID_UFS: &[&str] = &[
         "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB",
         "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
     ];
+
+    let opts = options.unwrap_or_default();
+    let target_date = opts
+        .date
+        .unwrap_or_else(|| chrono::Local::now().date_naive());
+    let uf = opts.uf.as_deref();
 
     // Check if UF is valid
     if let Some(state) = uf {
@@ -414,9 +443,419 @@ fn is_state_holiday(year: i32, month: u32, day: u32, date: NaiveDate, uf: &str) 
     }
 }
 
+/// Checks if a date is an "optional" (facultative) Brazilian holiday:
+/// Carnaval (Monday and Tuesday before Ash Wednesday) and Corpus Christi.
+/// Neither is fixed by federal law, but both are conventionally observed
+/// and are counted by default by the business-day functions.
+fn is_optional_holiday(date: NaiveDate) -> bool {
+    let easter = calculate_easter(date.year());
+    date == easter - chrono::Duration::days(48) // Carnaval Monday
+        || date == easter - chrono::Duration::days(47) // Carnaval Tuesday
+        || date == easter + chrono::Duration::days(60) // Corpus Christi
+}
+
+/// A single Brazilian holiday, as returned by [`get_holidays`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Holiday {
+    /// The holiday's name, in Brazilian Portuguese.
+    pub name: String,
+    /// The calendar date of the holiday for the requested year.
+    pub date: NaiveDate,
+    /// One of `"national"`, `"state"`, `"optional"` or `"religious"`.
+    pub holiday_type: String,
+}
+
+/// Returns the national Brazilian holidays of a year, sorted by date.
+///
+/// This includes the fixed and movable national holidays (`"national"`),
+/// Good Friday (`"religious"`) and the optional/facultative Carnaval and
+/// Corpus Christi holidays (`"optional"`). It does not include state
+/// holidays (see [`is_holiday`]'s `uf` option for those).
+///
+/// # Arguments
+///
+/// * `year` - The year to list holidays for.
+///
+/// # Returns
+///
+/// The year's holidays sorted by date, or an empty list when `year` is
+/// outside 1900 to 2099.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::date_utils::get_holidays;
+///
+/// let holidays = get_holidays(2024);
+/// assert!(holidays.iter().any(|h| h.name == "Confraternização Universal"));
+/// assert!(get_holidays(1800).is_empty());
+/// ```
+pub fn get_holidays(year: i32) -> Vec<Holiday> {
+    if !(1900..=2099).contains(&year) {
+        return Vec::new();
+    }
+
+    let mut holidays = Vec::new();
+    let mut push = |name: &str, date: Option<NaiveDate>, holiday_type: &str| {
+        if let Some(date) = date {
+            holidays.push(Holiday {
+                name: name.to_string(),
+                date,
+                holiday_type: holiday_type.to_string(),
+            });
+        }
+    };
+
+    push(
+        "Confraternização Universal",
+        NaiveDate::from_ymd_opt(year, 1, 1),
+        "national",
+    );
+    if year != 1931 && year != 1932 {
+        push("Tiradentes", NaiveDate::from_ymd_opt(year, 4, 21), "national");
+    }
+    if year >= 1925 {
+        push("Dia do Trabalho", NaiveDate::from_ymd_opt(year, 5, 1), "national");
+    }
+    if year >= 1890 {
+        push(
+            "Independência do Brasil",
+            NaiveDate::from_ymd_opt(year, 9, 7),
+            "national",
+        );
+    }
+    if year <= 1930 || year >= 1980 {
+        push(
+            "Nossa Senhora Aparecida",
+            NaiveDate::from_ymd_opt(year, 10, 12),
+            "national",
+        );
+    }
+    push("Finados", NaiveDate::from_ymd_opt(year, 11, 2), "national");
+    push(
+        "Proclamação da República",
+        NaiveDate::from_ymd_opt(year, 11, 15),
+        "national",
+    );
+    if year >= 2024 {
+        push(
+            "Dia da Consciência Negra",
+            NaiveDate::from_ymd_opt(year, 11, 20),
+            "national",
+        );
+    }
+    if year >= 1922 {
+        push("Natal", NaiveDate::from_ymd_opt(year, 12, 25), "national");
+    }
+
+    let easter = calculate_easter(year);
+    push(
+        "Carnaval (segunda-feira)",
+        Some(easter - chrono::Duration::days(48)),
+        "optional",
+    );
+    push(
+        "Carnaval (terça-feira)",
+        Some(easter - chrono::Duration::days(47)),
+        "optional",
+    );
+    push(
+        "Sexta-feira Santa",
+        Some(easter - chrono::Duration::days(2)),
+        "religious",
+    );
+    push(
+        "Corpus Christi",
+        Some(easter + chrono::Duration::days(60)),
+        "optional",
+    );
+
+    holidays.sort_by_key(|h| h.date);
+    holidays
+}
+
+/// Options shared by the business-day functions.
+#[derive(Debug, Clone, Default)]
+pub struct BusinessDayOptions {
+    /// Whether Carnaval and Corpus Christi also count as non-business days.
+    /// Defaults to `true`.
+    pub include_optional: Option<bool>,
+    /// A state abbreviation (UF) whose state holidays also count.
+    pub uf: Option<String>,
+}
+
+fn is_business_day_internal(date: NaiveDate, opts: &BusinessDayOptions) -> bool {
+    if !(1900..=2099).contains(&date.year()) {
+        return false;
+    }
+
+    let weekday = date.weekday();
+    if weekday == Weekday::Sat || weekday == Weekday::Sun {
+        return false;
+    }
+
+    if is_national_holiday(date.year(), date.month(), date.day(), date) {
+        return false;
+    }
+
+    if opts.include_optional.unwrap_or(true) && is_optional_holiday(date) {
+        return false;
+    }
+
+    if let Some(state) = opts.uf.as_deref() {
+        if is_state_holiday(date.year(), date.month(), date.day(), date, state) {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Checks whether a date is a Brazilian business day (dia útil): not a
+/// Saturday, a Sunday or a holiday.
+///
+/// # Arguments
+///
+/// * `value` - The date to check.
+/// * `options` - Optionally excludes the optional holidays from the check
+///   and/or adds a state's holidays; see [`BusinessDayOptions`].
+///
+/// # Returns
+///
+/// `true` when `value` is a business day, `false` otherwise (including when
+/// its year is outside 1900 to 2099).
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::date_utils::is_business_day;
+/// use chrono::NaiveDate;
+///
+/// assert!(is_business_day(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(), None));
+/// assert!(!is_business_day(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), None)); // holiday
+/// assert!(!is_business_day(NaiveDate::from_ymd_opt(2024, 1, 6).unwrap(), None)); // Saturday
+/// ```
+pub fn is_business_day(value: NaiveDate, options: Option<BusinessDayOptions>) -> bool {
+    let opts = options.unwrap_or_default();
+    is_business_day_internal(value, &opts)
+}
+
+/// Adds a number of Brazilian business days to a date.
+///
+/// # Arguments
+///
+/// * `date` - The starting date.
+/// * `amount` - The number of business days to add; negative walks backwards,
+///   `0` returns `date` unchanged (even when it is not itself a business day).
+/// * `options` - See [`BusinessDayOptions`].
+///
+/// # Returns
+///
+/// The resulting date, or `None` if `date` or the result falls outside the
+/// years 1900 to 2099.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::date_utils::add_business_days;
+/// use chrono::NaiveDate;
+///
+/// let start = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(); // holiday (Monday)
+/// let result = add_business_days(start, 1, None);
+/// assert_eq!(result, NaiveDate::from_ymd_opt(2024, 1, 2));
+/// ```
+pub fn add_business_days(
+    date: NaiveDate,
+    amount: i64,
+    options: Option<BusinessDayOptions>,
+) -> Option<NaiveDate> {
+    if !(1900..=2099).contains(&date.year()) {
+        return None;
+    }
+
+    if amount == 0 {
+        return Some(date);
+    }
+
+    let opts = options.unwrap_or_default();
+    let step: i64 = if amount > 0 { 1 } else { -1 };
+    let mut remaining = amount.abs();
+    let mut current = date;
+
+    while remaining > 0 {
+        current += chrono::Duration::days(step);
+        if !(1900..=2099).contains(&current.year()) {
+            return None;
+        }
+        if is_business_day_internal(current, &opts) {
+            remaining -= 1;
+        }
+    }
+
+    Some(current)
+}
+
+/// Subtracts a number of Brazilian business days from a date.
+///
+/// Equivalent to [`add_business_days`] with the opposite `amount`.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::date_utils::sub_business_days;
+/// use chrono::NaiveDate;
+///
+/// let start = NaiveDate::from_ymd_opt(2024, 1, 2).unwrap();
+/// let result = sub_business_days(start, 1, None);
+/// assert_eq!(result, NaiveDate::from_ymd_opt(2023, 12, 29));
+/// ```
+pub fn sub_business_days(
+    date: NaiveDate,
+    amount: i64,
+    options: Option<BusinessDayOptions>,
+) -> Option<NaiveDate> {
+    add_business_days(date, -amount, options)
+}
+
+/// Counts the Brazilian business days between two dates.
+///
+/// Counts `earlier_date` when it is a business day, and every business day
+/// strictly between the two; `later_date` is never counted. Negative when
+/// `later_date` is before `earlier_date`; `0` on the same calendar day.
+///
+/// # Arguments
+///
+/// * `later_date` - The later of the two dates (by convention).
+/// * `earlier_date` - The earlier of the two dates (by convention).
+/// * `options` - See [`BusinessDayOptions`].
+///
+/// # Returns
+///
+/// The signed count of business days, or `None` when either date is outside
+/// the years 1900 to 2099.
+pub fn difference_in_business_days(
+    later_date: NaiveDate,
+    earlier_date: NaiveDate,
+    options: Option<BusinessDayOptions>,
+) -> Option<i64> {
+    if !(1900..=2099).contains(&later_date.year()) || !(1900..=2099).contains(&earlier_date.year())
+    {
+        return None;
+    }
+
+    if later_date == earlier_date {
+        return Some(0);
+    }
+
+    let opts = options.unwrap_or_default();
+    let (start, end, sign) = if later_date > earlier_date {
+        (earlier_date, later_date, 1)
+    } else {
+        (later_date, earlier_date, -1)
+    };
+
+    let mut count: i64 = 0;
+    let mut current = start;
+    while current < end {
+        if is_business_day_internal(current, &opts) {
+            count += 1;
+        }
+        current += chrono::Duration::days(1);
+    }
+
+    Some(count * sign)
+}
+
+/// Writes a date in Brazilian Portuguese words ("por extenso"), all lower
+/// case, e.g. `"primeiro de janeiro de dois mil e vinte e quatro"`.
+///
+/// Unlike [`convert_date_to_text`], this accepts both the `dd/mm/yyyy` and
+/// the ISO `yyyy-mm-dd` formats, and returns an empty string (never `None`)
+/// for invalid input, matching the contract's reference implementation.
+///
+/// # Arguments
+///
+/// * `value` - The date to convert, as `dd/mm/yyyy` or `yyyy-mm-dd`.
+///
+/// # Returns
+///
+/// The date written out in lower-case Brazilian Portuguese, or `""` if
+/// `value` is not a valid date in one of the two accepted formats.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::date_utils::convert_to_words;
+///
+/// assert_eq!(convert_to_words("01/01/2024"), "primeiro de janeiro de dois mil e vinte e quatro");
+/// assert_eq!(convert_to_words("2024-12-25"), "vinte e cinco de dezembro de dois mil e vinte e quatro");
+/// assert_eq!(convert_to_words("31/04/2024"), "");
+/// assert_eq!(convert_to_words("not a date"), "");
+/// ```
+pub fn convert_to_words(value: &str) -> String {
+    let parsed = parse_br_date(value).or_else(|| parse_iso_date(value));
+
+    let (day, month, year) = match parsed {
+        Some(parts) => parts,
+        None => return String::new(),
+    };
+
+    if year < 1 {
+        return String::new();
+    }
+
+    if NaiveDate::from_ymd_opt(year, month, day).is_none() {
+        return String::new();
+    }
+
+    let day_str = if day == 1 {
+        "primeiro".to_string()
+    } else {
+        number_to_words(day as i64)
+    };
+
+    let month_name = get_month_name(month);
+    let year_str = number_to_words(year as i64);
+
+    format!("{} de {} de {}", day_str, month_name, year_str)
+}
+
+/// Parses a `dd/mm/yyyy` string into its (day, month, year) parts, without
+/// validating that the date actually exists.
+fn parse_br_date(value: &str) -> Option<(u32, u32, i32)> {
+    let parts: Vec<&str> = value.split('/').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let day: u32 = parts[0].parse().ok()?;
+    let month: u32 = parts[1].parse().ok()?;
+    let year: i32 = parts[2].parse().ok()?;
+    Some((day, month, year))
+}
+
+/// Parses a `yyyy-mm-dd` (ISO) string into its (day, month, year) parts,
+/// without validating that the date actually exists.
+fn parse_iso_date(value: &str) -> Option<(u32, u32, i32)> {
+    let parts: Vec<&str> = value.split('-').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let year: i32 = parts[0].parse().ok()?;
+    let month: u32 = parts[1].parse().ok()?;
+    let day: u32 = parts[2].parse().ok()?;
+    Some((day, month, year))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn h(date: NaiveDate, uf: Option<&str>) -> Option<bool> {
+        is_holiday(Some(IsHolidayParams {
+            date: Some(date),
+            uf: uf.map(|s| s.to_string()),
+        }))
+    }
 
     #[test]
     fn test_convert_date_to_text_basic() {
@@ -446,25 +885,25 @@ mod tests {
     fn test_is_holiday_national() {
         // New Year's Day
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), None),
             Some(true)
         );
 
         // Regular day
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(), None),
             Some(false)
         );
 
         // Independence Day
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 9, 7).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2024, 9, 7).unwrap(), None),
             Some(true)
         );
 
         // Christmas
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2024, 12, 25).unwrap(), None),
             Some(true)
         );
     }
@@ -474,17 +913,17 @@ mod tests {
         // Lei 14.759/2023: Black Awareness Day (Nov 20) became a national
         // holiday starting in 2024.
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 11, 20).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2024, 11, 20).unwrap(), None),
             Some(true)
         );
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2025, 11, 20).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2025, 11, 20).unwrap(), None),
             Some(true)
         );
 
         // Before the law, it was not a national holiday (only in specific states).
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2023, 11, 20).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2023, 11, 20).unwrap(), None),
             Some(false)
         );
     }
@@ -493,19 +932,19 @@ mod tests {
     fn test_is_holiday_state() {
         // Bahia Independence Day
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("BA")),
+            h(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("BA")),
             Some(true)
         );
 
         // Not a holiday in other states
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("SP")),
+            h(NaiveDate::from_ymd_opt(2024, 7, 2).unwrap(), Some("SP")),
             Some(false)
         );
 
         // São Paulo state holiday
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 7, 9).unwrap(), Some("SP")),
+            h(NaiveDate::from_ymd_opt(2024, 7, 9).unwrap(), Some("SP")),
             Some(true)
         );
     }
@@ -513,7 +952,7 @@ mod tests {
     #[test]
     fn test_is_holiday_invalid_uf() {
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), Some("XX")),
+            h(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(), Some("XX")),
             None
         );
     }
@@ -522,13 +961,13 @@ mod tests {
     fn test_is_holiday_good_friday() {
         // Good Friday 2024 (March 29)
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2024, 3, 29).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2024, 3, 29).unwrap(), None),
             Some(true)
         );
 
         // Good Friday 2023 (April 7)
         assert_eq!(
-            is_holiday(NaiveDate::from_ymd_opt(2023, 4, 7).unwrap(), None),
+            h(NaiveDate::from_ymd_opt(2023, 4, 7).unwrap(), None),
             Some(true)
         );
     }
@@ -560,5 +999,112 @@ mod tests {
         assert_eq!(get_month_name(2), "fevereiro");
         assert_eq!(get_month_name(3), "março");
         assert_eq!(get_month_name(12), "dezembro");
+    }
+
+    #[test]
+    fn test_convert_to_words() {
+        assert_eq!(
+            convert_to_words("01/01/2024"),
+            "primeiro de janeiro de dois mil e vinte e quatro"
+        );
+        assert_eq!(
+            convert_to_words("02/01/2024"),
+            "dois de janeiro de dois mil e vinte e quatro"
+        );
+        assert_eq!(
+            convert_to_words("25/12/2024"),
+            "vinte e cinco de dezembro de dois mil e vinte e quatro"
+        );
+        assert_eq!(
+            convert_to_words("2024-12-25"),
+            "vinte e cinco de dezembro de dois mil e vinte e quatro"
+        );
+        assert_eq!(
+            convert_to_words("29/02/2000"),
+            "vinte e nove de fevereiro de dois mil"
+        );
+        assert_eq!(convert_to_words("29/02/2023"), "");
+        assert_eq!(convert_to_words("31/04/2024"), "");
+        assert_eq!(convert_to_words("not a date"), "");
+        assert_eq!(convert_to_words(""), "");
+    }
+
+    #[test]
+    fn test_get_holidays() {
+        let holidays_2024 = get_holidays(2024);
+        assert!(holidays_2024
+            .iter()
+            .any(|h| h.date == NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()
+                && h.holiday_type == "national"));
+        assert!(holidays_2024
+            .iter()
+            .any(|h| h.date == NaiveDate::from_ymd_opt(2024, 3, 29).unwrap()
+                && h.holiday_type == "religious"));
+        assert!(holidays_2024
+            .iter()
+            .any(|h| h.holiday_type == "optional"));
+
+        // Sorted by date
+        let mut sorted = holidays_2024.clone();
+        sorted.sort_by_key(|h| h.date);
+        assert_eq!(holidays_2024, sorted);
+
+        assert_eq!(get_holidays(1800), Vec::new());
+        assert_eq!(get_holidays(2100), Vec::new());
+    }
+
+    #[test]
+    fn test_is_business_day() {
+        assert!(is_business_day(
+            NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
+            None
+        ));
+        assert!(!is_business_day(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            None
+        )); // holiday
+        assert!(!is_business_day(
+            NaiveDate::from_ymd_opt(2024, 1, 6).unwrap(),
+            None
+        )); // Saturday
+        assert!(!is_business_day(
+            NaiveDate::from_ymd_opt(2024, 1, 7).unwrap(),
+            None
+        )); // Sunday
+    }
+
+    #[test]
+    fn test_add_business_days() {
+        let start = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(); // Monday, holiday
+        assert_eq!(
+            add_business_days(start, 1, None),
+            NaiveDate::from_ymd_opt(2024, 1, 2)
+        );
+        assert_eq!(add_business_days(start, 0, None), Some(start));
+
+        let friday = NaiveDate::from_ymd_opt(2024, 1, 5).unwrap();
+        assert_eq!(
+            add_business_days(friday, 1, None),
+            NaiveDate::from_ymd_opt(2024, 1, 8)
+        );
+    }
+
+    #[test]
+    fn test_sub_business_days() {
+        let start = NaiveDate::from_ymd_opt(2024, 1, 2).unwrap();
+        assert_eq!(
+            sub_business_days(start, 1, None),
+            NaiveDate::from_ymd_opt(2023, 12, 29)
+        );
+    }
+
+    #[test]
+    fn test_difference_in_business_days() {
+        let a = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+        let b = NaiveDate::from_ymd_opt(2024, 1, 8).unwrap();
+        // Business days in [Jan 1, Jan 8): Jan 2,3,4,5 (Jan 1 holiday, Jan 6-7 weekend)
+        assert_eq!(difference_in_business_days(b, a, None), Some(4));
+        assert_eq!(difference_in_business_days(a, b, None), Some(-4));
+        assert_eq!(difference_in_business_days(a, a, None), Some(0));
     }
 }

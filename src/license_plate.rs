@@ -129,15 +129,14 @@ fn is_valid_mercosul(license_plate: &str) -> bool {
     chars[5..7].iter().all(|c| c.is_ascii_digit())
 }
 
-/// Returns if a Brazilian license plate number is valid.
+/// Returns if a Brazilian license plate number is valid, in either the old
+/// format (`LLLNNNN`) or the Mercosul format (`LLLNLNN`).
 ///
 /// It does not verify if the plate actually exists.
 ///
 /// # Arguments
 ///
 /// * `license_plate` - The license plate number to be validated.
-/// * `format` - Optional format type: "old_format" or "mercosul".
-///   If not specified, checks for either format.
 ///
 /// # Returns
 ///
@@ -149,18 +148,40 @@ fn is_valid_mercosul(license_plate: &str) -> bool {
 /// use brazilian_utils::license_plate::is_valid;
 ///
 /// // Valid old format
-/// assert!(is_valid("ABC1234", None));
-/// assert!(is_valid("ABC1234", Some("old_format")));
+/// assert!(is_valid("ABC1234"));
 ///
 /// // Valid Mercosul format
-/// assert!(is_valid("ABC1D23", None));
-/// assert!(is_valid("ABC1D23", Some("mercosul")));
+/// assert!(is_valid("ABC1D23"));
 ///
 /// // Invalid
-/// assert!(!is_valid("ABC123", None));
-/// assert!(!is_valid("ABC1D23", Some("old_format")));
+/// assert!(!is_valid("ABC123"));
 /// ```
-pub fn is_valid(license_plate: &str, format: Option<&str>) -> bool {
+pub fn is_valid(license_plate: &str) -> bool {
+    is_valid_old_format(license_plate) || is_valid_mercosul(license_plate)
+}
+
+/// Returns if a Brazilian license plate number is valid for a specific format.
+///
+/// # Arguments
+///
+/// * `license_plate` - The license plate number to be validated.
+/// * `format` - Optional format type: "old_format" or "mercosul".
+///   If not specified, checks for either format.
+///
+/// # Returns
+///
+/// `true` if the plate number is valid for the given format, `false` otherwise.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::license_plate::is_valid_for_format;
+///
+/// assert!(is_valid_for_format("ABC1234", Some("old_format")));
+/// assert!(is_valid_for_format("ABC1D23", Some("mercosul")));
+/// assert!(!is_valid_for_format("ABC1D23", Some("old_format")));
+/// ```
+pub fn is_valid_for_format(license_plate: &str, format: Option<&str>) -> bool {
     match format {
         Some("old_format") => is_valid_old_format(license_plate),
         Some("mercosul") => is_valid_mercosul(license_plate),
@@ -218,17 +239,22 @@ pub fn get_format(license_plate: &str) -> Option<String> {
 /// ```
 /// use brazilian_utils::license_plate::convert_to_mercosul;
 ///
-/// assert_eq!(convert_to_mercosul("ABC1234"), Some("ABC1C34".to_string()));
-/// assert_eq!(convert_to_mercosul("ABC4567"), Some("ABC4F67".to_string()));
-/// assert_eq!(convert_to_mercosul("ABC0000"), Some("ABC0A00".to_string()));
-/// assert_eq!(convert_to_mercosul("ABC4*67"), None);
+/// assert_eq!(convert_to_mercosul("ABC1234"), "ABC1C34");
+/// assert_eq!(convert_to_mercosul("ABC4567"), "ABC4F67");
+/// assert_eq!(convert_to_mercosul("ABC0000"), "ABC0A00");
+/// assert_eq!(convert_to_mercosul("ABC4*67"), "");
 /// ```
-pub fn convert_to_mercosul(license_plate: &str) -> Option<String> {
-    if !is_valid_old_format(license_plate) {
-        return None;
+pub fn convert_to_mercosul(license_plate: &str) -> String {
+    // The hyphen mask (`ABC-1234`) is accepted; everything else (an already
+    // Mercosul plate, garbage, or empty input) yields an empty string
+    // instead of null, per the contract.
+    let cleaned = remove_symbols(license_plate).to_uppercase();
+
+    if !is_valid_old_format(&cleaned) {
+        return String::new();
     }
 
-    let mut chars: Vec<char> = license_plate.to_uppercase().chars().collect();
+    let mut chars: Vec<char> = cleaned.chars().collect();
 
     // Convert the 5th character (second digit, position 4) to a letter
     // 0->A, 1->B, ..., 9->J
@@ -236,7 +262,34 @@ pub fn convert_to_mercosul(license_plate: &str) -> Option<String> {
         chars[4] = char::from_u32('A' as u32 + digit).unwrap();
     }
 
-    Some(chars.into_iter().collect())
+    chars.into_iter().collect()
+}
+
+/// Removes license plate formatting characters, upper-cases the result and
+/// caps it to 7 characters.
+///
+/// # Arguments
+///
+/// * `value` - A license plate string that may contain formatting symbols.
+///
+/// # Returns
+///
+/// The upper-cased, unformatted license plate, capped to 7 characters.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::license_plate::parse;
+///
+/// assert_eq!(parse("abc-1234"), "ABC1234");
+/// assert_eq!(parse("abc123456"), "ABC1234");
+/// ```
+pub fn parse(value: &str) -> String {
+    remove_symbols(value)
+        .to_uppercase()
+        .chars()
+        .take(7)
+        .collect()
 }
 
 /// Generate a valid license plate in the given format.
@@ -339,36 +392,46 @@ mod tests {
 
     #[test]
     fn test_is_valid_old_format() {
-        assert!(is_valid("ABC1234", Some("old_format")));
-        assert!(is_valid("XYZ9876", Some("old_format")));
-        assert!(is_valid("abc1234", Some("old_format")));
+        assert!(is_valid_for_format("ABC1234", Some("old_format")));
+        assert!(is_valid_for_format("XYZ9876", Some("old_format")));
+        assert!(is_valid_for_format("abc1234", Some("old_format")));
 
-        assert!(!is_valid("ABC1D23", Some("old_format")));
-        assert!(!is_valid("ABC123", Some("old_format")));
-        assert!(!is_valid("ABCD1234", Some("old_format")));
+        assert!(!is_valid_for_format("ABC1D23", Some("old_format")));
+        assert!(!is_valid_for_format("ABC123", Some("old_format")));
+        assert!(!is_valid_for_format("ABCD1234", Some("old_format")));
     }
 
     #[test]
     fn test_is_valid_mercosul() {
-        assert!(is_valid("ABC1D23", Some("mercosul")));
-        assert!(is_valid("XYZ9A99", Some("mercosul")));
-        assert!(is_valid("abc1e34", Some("mercosul")));
+        assert!(is_valid_for_format("ABC1D23", Some("mercosul")));
+        assert!(is_valid_for_format("XYZ9A99", Some("mercosul")));
+        assert!(is_valid_for_format("abc1e34", Some("mercosul")));
 
-        assert!(!is_valid("ABC1234", Some("mercosul")));
-        assert!(!is_valid("ABC12D3", Some("mercosul")));
-        assert!(!is_valid("ABCD123", Some("mercosul")));
+        assert!(!is_valid_for_format("ABC1234", Some("mercosul")));
+        assert!(!is_valid_for_format("ABC12D3", Some("mercosul")));
+        assert!(!is_valid_for_format("ABCD123", Some("mercosul")));
     }
 
     #[test]
     fn test_is_valid_any_format() {
-        assert!(is_valid("ABC1234", None));
-        assert!(is_valid("ABC1D23", None));
-        assert!(is_valid("xyz9876", None));
-        assert!(is_valid("abc1e34", None));
+        assert!(is_valid("ABC1234"));
+        assert!(is_valid("ABC1D23"));
+        assert!(is_valid("xyz9876"));
+        assert!(is_valid("abc1e34"));
 
-        assert!(!is_valid("ABC123", None));
-        assert!(!is_valid("ABCD1234", None));
-        assert!(!is_valid("", None));
+        assert!(!is_valid("ABC123"));
+        assert!(!is_valid("ABCD1234"));
+        assert!(!is_valid(""));
+        assert!(!is_valid("   "));
+        assert!(!is_valid("abc"));
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("abc-1234"), "ABC1234");
+        assert_eq!(parse("abc1d23"), "ABC1D23");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("abc123456"), "ABC1234");
     }
 
     #[test]
@@ -384,19 +447,21 @@ mod tests {
 
     #[test]
     fn test_convert_to_mercosul() {
-        assert_eq!(convert_to_mercosul("ABC1234"), Some("ABC1C34".to_string()));
-        assert_eq!(convert_to_mercosul("ABC4567"), Some("ABC4F67".to_string()));
-        assert_eq!(convert_to_mercosul("ABC0000"), Some("ABC0A00".to_string()));
-        assert_eq!(convert_to_mercosul("ABC9999"), Some("ABC9J99".to_string()));
-        assert_eq!(convert_to_mercosul("abc1234"), Some("ABC1C34".to_string()));
+        assert_eq!(convert_to_mercosul("ABC1234"), "ABC1C34");
+        assert_eq!(convert_to_mercosul("ABC4567"), "ABC4F67");
+        assert_eq!(convert_to_mercosul("ABC0000"), "ABC0A00");
+        assert_eq!(convert_to_mercosul("ABC9999"), "ABC9J99");
+        assert_eq!(convert_to_mercosul("abc1234"), "ABC1C34");
+        assert_eq!(convert_to_mercosul("ABC-1234"), "ABC1C34");
     }
 
     #[test]
     fn test_convert_to_mercosul_invalid() {
-        assert_eq!(convert_to_mercosul("ABC4*67"), None);
-        assert_eq!(convert_to_mercosul("ABC123"), None);
-        assert_eq!(convert_to_mercosul("ABC1D23"), None);
-        assert_eq!(convert_to_mercosul("ABCD1234"), None);
+        assert_eq!(convert_to_mercosul("ABC4*67"), "");
+        assert_eq!(convert_to_mercosul("ABC123"), "");
+        assert_eq!(convert_to_mercosul("ABC1D23"), "");
+        assert_eq!(convert_to_mercosul("ABCD1234"), "");
+        assert_eq!(convert_to_mercosul(""), "");
     }
 
     #[test]
@@ -405,7 +470,7 @@ mod tests {
         assert!(plate.is_some());
         let plate = plate.unwrap();
         assert_eq!(plate.len(), 7);
-        assert!(is_valid(&plate, Some("mercosul")));
+        assert!(is_valid_for_format(&plate, Some("mercosul")));
     }
 
     #[test]
@@ -414,7 +479,7 @@ mod tests {
         assert!(plate.is_some());
         let plate = plate.unwrap();
         assert_eq!(plate.len(), 7);
-        assert!(is_valid(&plate, Some("old_format")));
+        assert!(is_valid_for_format(&plate, Some("old_format")));
     }
 
     #[test]

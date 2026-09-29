@@ -223,6 +223,131 @@ fn validate_mod11_check_digit(digitable_line: &str) -> bool {
     check_digit == mod11
 }
 
+use rand::Rng;
+
+/// Applies a grouped mask to a digit string, as far as the digits go.
+fn apply_grouped_mask(digits: &str, group_sizes: &[usize], separators: &[&str]) -> String {
+    let mut result = String::new();
+    let mut pos = 0;
+
+    for (i, &size) in group_sizes.iter().enumerate() {
+        if pos >= digits.len() {
+            break;
+        }
+        let end = (pos + size).min(digits.len());
+        result.push_str(&digits[pos..end]);
+        pos = end;
+
+        if pos >= digits.len() {
+            break;
+        }
+        if i < separators.len() {
+            result.push_str(separators[i]);
+        }
+    }
+
+    result
+}
+
+/// Removes boleto formatting and keeps only digits, capped to 47 digits (48
+/// for a boleto de arrecadação, recognized by a leading `8`).
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::boleto::parse;
+///
+/// assert_eq!(
+///     parse("10491.44338 55119.000002 00000.000141 3 25230000093423"),
+///     "10491443385511900000200000000141325230000093423"
+/// );
+/// ```
+pub fn parse(value: &str) -> String {
+    let digits = only_numbers(value);
+    let cap = if digits.starts_with('8') { 48 } else { 47 };
+    digits.chars().take(cap).collect()
+}
+
+/// Formats a boleto linha digitável with its printed mask.
+///
+/// The 47-digit cobrança bancária linha digitável is grouped as
+/// `00000.00000 00000.000000 00000.000000 0 00000000000000`. A 48-digit
+/// linha digitável starting with `8` (boleto de arrecadação) gets four
+/// blocks of 11 digits, each followed by its check digit.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::boleto::format;
+///
+/// assert_eq!(
+///     format("10491443385511900000200000000141325230000093423"),
+///     "10491.44338 55119.000002 00000.000141 3 25230000093423"
+/// );
+/// assert_eq!(format("104914"), "10491.4");
+/// assert_eq!(format(""), "");
+/// ```
+pub fn format(value: &str) -> String {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+
+    if digits.starts_with('8') && digits.len() > 44 {
+        apply_grouped_mask(
+            &digits,
+            &[11, 1, 11, 1, 11, 1, 11, 1],
+            &["-", " ", "-", " ", "-", " ", "-"],
+        )
+    } else {
+        apply_grouped_mask(
+            &digits,
+            &[5, 5, 5, 6, 5, 6, 1, 14],
+            &[".", " ", ".", " ", ".", " ", " "],
+        )
+    }
+}
+
+/// Generates a valid random Brazilian bank slip (boleto) number: a 47-digit
+/// cobrança bancária linha digitável that passes [`is_valid`].
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::boleto::{generate, is_valid};
+///
+/// let boleto = generate();
+/// assert_eq!(boleto.len(), 47);
+/// assert!(is_valid(&boleto));
+/// ```
+pub fn generate() -> String {
+    let mut rng = rand::thread_rng();
+    let rand_digits = |rng: &mut rand::rngs::ThreadRng, n: usize| -> String {
+        (0..n).map(|_| rng.gen_range(0..=9).to_string()).collect()
+    };
+
+    let field0_4 = rand_digits(&mut rng, 4);
+    let field4_9 = rand_digits(&mut rng, 5);
+    let part1_data = format!("{}{}", field0_4, field4_9);
+    let check1 = get_mod10(&part1_data);
+
+    let field10_20 = rand_digits(&mut rng, 10);
+    let check2 = get_mod10(&field10_20);
+
+    let field21_31 = rand_digits(&mut rng, 10);
+    let check3 = get_mod10(&field21_31);
+
+    let field33_47 = rand_digits(&mut rng, 14);
+
+    let barcode_without_dv = format!(
+        "{}{}{}{}{}",
+        field0_4, field33_47, field4_9, field10_20, field21_31
+    );
+    let dv = get_mod11(&barcode_without_dv);
+
+    format!(
+        "{}{}{}{}{}{}{}{}{}",
+        field0_4, field4_9, check1, field10_20, check2, field21_31, check3, dv, field33_47
+    )
+}
+
 // PUBLIC API
 // ==========
 
@@ -385,6 +510,38 @@ mod tests {
     #[test]
     fn test_is_valid_with_formatting() {
         assert!(is_valid("0019000009 01149.718601 68524.522114 6 75860000102656"));
+    }
+
+    #[test]
+    fn test_format() {
+        assert_eq!(
+            format("10491443385511900000200000000141325230000093423"),
+            "10491.44338 55119.000002 00000.000141 3 25230000093423"
+        );
+        assert_eq!(format("104914"), "10491.4");
+        assert_eq!(format(""), "");
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(
+            parse("10491.44338 55119.000002 00000.000141 3 25230000093423"),
+            "10491443385511900000200000000141325230000093423"
+        );
+        assert_eq!(
+            parse("84610000000-5 24610029110-2 00546033900-4 69589506108-0"),
+            "846100000005246100291102005460339004695895061080"
+        );
+        assert_eq!(parse(""), "");
+    }
+
+    #[test]
+    fn test_generate() {
+        for _ in 0..20 {
+            let boleto = generate();
+            assert_eq!(boleto.len(), 47);
+            assert!(is_valid(&boleto), "generated boleto should be valid: {}", boleto);
+        }
     }
 
     #[test]

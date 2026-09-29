@@ -61,7 +61,7 @@ fn main() {
 
     // Listando todas as naturezas jurídicas
     println!("\n4. Estatísticas da tabela:");
-    let table = list_all();
+    let table = list_all(None);
     println!("   Total de códigos registrados: {}", table.len());
 
     // Contando por categoria (baseado no primeiro dígito)

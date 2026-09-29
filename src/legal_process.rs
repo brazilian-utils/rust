@@ -42,6 +42,31 @@ pub fn remove_symbols(legal_process: &str) -> String {
     legal_process.replace(['.', '-'], "")
 }
 
+/// Removes legal process formatting and keeps only digits, capped to 20 digits.
+///
+/// # Arguments
+///
+/// * `value` - A legal process string that may contain formatting symbols.
+///
+/// # Returns
+///
+/// A string with only the digits of `value`, capped to 20 characters.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::legal_process::parse;
+///
+/// assert_eq!(parse("0002080-25.2012.5.15.0049"), "00020802520125150049");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(20)
+        .collect()
+}
+
 /// Format a legal process ID into a standard format.
 ///
 /// This function formats a 20-digit string into the standard Brazilian legal
@@ -186,13 +211,22 @@ pub fn is_valid(legal_process_id: &str) -> bool {
     dd == expected_dd
 }
 
+/// Parameters for [`generate`].
+#[derive(Debug, Clone, Default)]
+pub struct GenerateProcessoJuridicoParams {
+    /// The year for the legal process ID (default is the current year).
+    /// The year should not be in the past.
+    pub year: Option<i32>,
+    /// The organization/segment code (1-9) for the legal process ID.
+    pub court: Option<u32>,
+}
+
 /// Generate a random legal process ID number.
 ///
 /// # Arguments
 ///
-/// * `year` - The year for the legal process ID (default is the current year).
-///   The year should not be in the past.
-/// * `orgao` - The organization code (1-9) for the legal process ID.
+/// * `options` - Optionally sets the year and the segment (`court`); see
+///   [`GenerateProcessoJuridicoParams`].
 ///
 /// # Returns
 ///
@@ -201,20 +235,22 @@ pub fn is_valid(legal_process_id: &str) -> bool {
 /// # Examples
 ///
 /// ```
-/// use brazilian_utils::legal_process::generate;
+/// use brazilian_utils::legal_process::{generate, GenerateProcessoJuridicoParams};
 ///
 /// // Generate with current year and random orgao
-/// let id = generate(None, None);
+/// let id = generate(None);
 /// assert!(id.is_some());
 /// assert_eq!(id.unwrap().len(), 20);
 ///
 /// // Generate with current year and specific orgao
-/// let id = generate(None, Some(5));
+/// let id = generate(Some(GenerateProcessoJuridicoParams { year: None, court: Some(5) }));
 /// assert!(id.is_some());
 /// ```
-pub fn generate(year: Option<i32>, orgao: Option<u32>) -> Option<String> {
+pub fn generate(options: Option<GenerateProcessoJuridicoParams>) -> Option<String> {
+    let opts = options.unwrap_or_default();
+    let orgao = opts.court;
     let current_year = chrono::Local::now().year();
-    let year = year.unwrap_or(current_year);
+    let year = opts.year.unwrap_or(current_year);
 
     // Validate year (not in the past)
     if year < current_year {
@@ -349,7 +385,7 @@ mod tests {
         let current_year = chrono::Local::now().year();
 
         // Generate with defaults
-        let id = generate(None, None);
+        let id = generate(None);
         assert!(id.is_some());
         let id_str = id.unwrap();
         assert_eq!(id_str.len(), 20);
@@ -359,13 +395,19 @@ mod tests {
         assert_eq!(year_part, current_year.to_string());
 
         // Generate with specific year
-        let id = generate(Some(3000), None);
+        let id = generate(Some(GenerateProcessoJuridicoParams {
+            year: Some(3000),
+            court: None,
+        }));
         assert!(id.is_some());
         let id_str = id.unwrap();
         assert_eq!(&id_str[9..13], "3000");
 
         // Generate with specific orgao
-        let id = generate(None, Some(4));
+        let id = generate(Some(GenerateProcessoJuridicoParams {
+            year: None,
+            court: Some(4),
+        }));
         assert!(id.is_some());
         let id_str = id.unwrap();
         assert_eq!(&id_str[13..14], "4");
@@ -376,18 +418,44 @@ mod tests {
         let current_year = chrono::Local::now().year();
 
         // Year in the past
-        assert_eq!(generate(Some(current_year - 1), None), None);
+        assert_eq!(
+            generate(Some(GenerateProcessoJuridicoParams {
+                year: Some(current_year - 1),
+                court: None,
+            })),
+            None
+        );
 
         // Invalid orgao (0 or > 9)
-        assert_eq!(generate(None, Some(0)), None);
-        assert_eq!(generate(None, Some(10)), None);
+        assert_eq!(
+            generate(Some(GenerateProcessoJuridicoParams {
+                year: None,
+                court: Some(0),
+            })),
+            None
+        );
+        assert_eq!(
+            generate(Some(GenerateProcessoJuridicoParams {
+                year: None,
+                court: Some(10),
+            })),
+            None
+        );
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("0002080-25.2012.5.15.0049"), "00020802520125150049");
+        assert_eq!(parse("00020802520125150049"), "00020802520125150049");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("00020802520125150049123"), "00020802520125150049");
     }
 
     #[test]
     fn test_generate_is_valid() {
         // Generated IDs should be valid
         for _ in 0..10 {
-            let id = generate(None, None);
+            let id = generate(None);
             assert!(id.is_some());
             let id_str = id.unwrap();
             assert!(

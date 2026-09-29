@@ -78,6 +78,32 @@ pub fn remove_symbols(dirty: &str) -> String {
     dirty.chars().filter(|c| *c != '.' && *c != '-').collect()
 }
 
+/// Removes CEP formatting and keeps only digits, capped to 8 digits.
+///
+/// # Arguments
+///
+/// * `value` - A CEP string that may contain formatting symbols.
+///
+/// # Returns
+///
+/// A string with only the digits of `value`, capped to 8 characters.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cep::parse;
+///
+/// assert_eq!(parse("01310-200"), "01310200");
+/// assert_eq!(parse(""), "");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(8)
+        .collect()
+}
+
 /// Formats a Brazilian CEP (Postal Code) into a standard format.
 ///
 /// This function takes a CEP (Postal Code) as input and, if it is a valid
@@ -164,12 +190,19 @@ pub fn generate() -> String {
 // API FUNCTIONS
 // =============
 
+/// Options for [`get_address_from_cep`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GetAddressInfoByCepOptions {
+    /// Whether to raise exceptions when the CEP is invalid or not found.
+    pub raise_exceptions: bool,
+}
+
 /// Fetches address information from a given CEP (Postal Code) using the ViaCEP API.
 ///
 /// # Arguments
 ///
 /// * `cep` - The CEP (Postal Code) to be used in the search.
-/// * `raise_exceptions` - Whether to raise exceptions when the CEP is invalid or not found.
+/// * `options` - Optionally sets `raise_exceptions`; defaults to `false`.
 ///
 /// # Returns
 ///
@@ -186,7 +219,7 @@ pub fn generate() -> String {
 /// ```no_run
 /// use brazilian_utils::cep::get_address_from_cep;
 ///
-/// match get_address_from_cep("01310200", false) {
+/// match get_address_from_cep("01310200", None) {
 ///     Ok(Some(address)) => println!("CEP: {}", address.cep),
 ///     Ok(None) => println!("CEP not found"),
 ///     Err(e) => eprintln!("Error: {}", e),
@@ -198,8 +231,9 @@ pub fn generate() -> String {
 /// <https://viacep.com.br/>
 pub fn get_address_from_cep(
     cep: &str,
-    raise_exceptions: bool,
+    options: Option<GetAddressInfoByCepOptions>,
 ) -> Result<Option<Address>, Box<dyn Error>> {
+    let raise_exceptions = options.unwrap_or_default().raise_exceptions;
     let base_api_url = "https://viacep.com.br/ws/{}/json/";
 
     let clean_cep = remove_symbols(cep);
@@ -243,14 +277,24 @@ pub fn get_address_from_cep(
     }
 }
 
+/// Parameters for [`get_cep_information_from_address`].
+#[derive(Debug, Clone, Default)]
+pub struct GetCepInfoByAddressParams {
+    /// The two-letter abbreviation of the Brazilian state.
+    pub federal_unit: String,
+    /// The name of the city.
+    pub city: String,
+    /// The name (or substring) of the street.
+    pub street: String,
+    /// Whether to raise exceptions when the address is invalid or not found.
+    pub raise_exceptions: bool,
+}
+
 /// Fetches CEP (Postal Code) options from a given address using the ViaCEP API.
 ///
 /// # Arguments
 ///
-/// * `federal_unit` - The two-letter abbreviation of the Brazilian state.
-/// * `city` - The name of the city.
-/// * `street` - The name (or substring) of the street.
-/// * `raise_exceptions` - Whether to raise exceptions when the address is invalid or not found.
+/// * `params` - The federal unit, city, street and `raise_exceptions` flag to search with.
 ///
 /// # Returns
 ///
@@ -265,9 +309,16 @@ pub fn get_address_from_cep(
 /// # Examples
 ///
 /// ```no_run
-/// use brazilian_utils::cep::get_cep_information_from_address;
+/// use brazilian_utils::cep::{get_cep_information_from_address, GetCepInfoByAddressParams};
 ///
-/// match get_cep_information_from_address("SP", "São Paulo", "Avenida Paulista", false) {
+/// let params = GetCepInfoByAddressParams {
+///     federal_unit: "SP".to_string(),
+///     city: "São Paulo".to_string(),
+///     street: "Avenida Paulista".to_string(),
+///     raise_exceptions: false,
+/// };
+///
+/// match get_cep_information_from_address(params) {
 ///     Ok(Some(addresses)) => {
 ///         for addr in addresses {
 ///             println!("CEP: {}", addr.cep);
@@ -282,11 +333,15 @@ pub fn get_address_from_cep(
 ///
 /// <https://viacep.com.br/>
 pub fn get_cep_information_from_address(
-    federal_unit: &str,
-    city: &str,
-    street: &str,
-    raise_exceptions: bool,
+    params: GetCepInfoByAddressParams,
 ) -> Result<Option<Vec<Address>>, Box<dyn Error>> {
+    let GetCepInfoByAddressParams {
+        federal_unit,
+        city,
+        street,
+        raise_exceptions,
+    } = params;
+
     // Valid Brazilian state abbreviations
     const VALID_UFS: &[&str] = &[
         "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB",
@@ -302,7 +357,7 @@ pub fn get_cep_information_from_address(
         return Ok(None);
     }
 
-    let url = build_address_search_url(&federal_unit_upper, city, street);
+    let url = build_address_search_url(&federal_unit_upper, &city, &street);
 
     match reqwest::blocking::get(&url) {
         Ok(response) => {
@@ -474,6 +529,14 @@ mod tests {
 
         // Only nines
         assert!(is_valid("99999999"));
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("01310-200"), "01310200");
+        assert_eq!(parse("01310200"), "01310200");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("013102009999"), "01310200");
     }
 
     #[test]

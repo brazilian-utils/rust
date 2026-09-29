@@ -60,7 +60,7 @@ fn main() {
     println!("4. Generate Random Legal Process IDs:");
 
     // Generate with current year and random orgao
-    match legal_process::generate(None, None) {
+    match legal_process::generate(None) {
         Some(id) => {
             let formatted = legal_process::format_legal_process(&id).unwrap();
             println!("   Current year, random orgao: {}", formatted);
@@ -70,7 +70,10 @@ fn main() {
 
     // Generate for specific organs
     for orgao in [1, 4, 5, 8] {
-        match legal_process::generate(None, Some(orgao)) {
+        match legal_process::generate(Some(legal_process::GenerateProcessoJuridicoParams {
+            year: None,
+            court: Some(orgao),
+        })) {
             Some(id) => {
                 let formatted = legal_process::format_legal_process(&id).unwrap();
                 println!("   Orgao {}: {}", orgao, formatted);

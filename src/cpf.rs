@@ -81,6 +81,32 @@ pub fn format_cpf(cpf: &str) -> Option<String> {
     ))
 }
 
+/// Removes CPF formatting and keeps only digits, capped to 11 digits.
+///
+/// # Arguments
+///
+/// * `value` - A CPF string that may contain formatting symbols or other characters.
+///
+/// # Returns
+///
+/// A string with only the digits of `value`, capped to 11 characters.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::cpf::parse;
+///
+/// assert_eq!(parse("943.895.751-04"), "94389575104");
+/// assert_eq!(parse("94389575104123"), "94389575104");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(11)
+        .collect()
+}
+
 // OPERATIONS
 // ==========
 
@@ -402,6 +428,15 @@ mod tests {
         let cpf_with_symbols = "821.785.374-64";
         let cpf_clean = remove_symbols(cpf_with_symbols);
         assert_eq!(format_cpf(&cpf_clean), Some("821.785.374-64".to_string()));
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("943.895.751-04"), "94389575104");
+        assert_eq!(parse("94389575104"), "94389575104");
+        assert_eq!(parse("943.?ABC895.751-04abc"), "94389575104");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("94389575104123"), "94389575104");
     }
 
     #[test]

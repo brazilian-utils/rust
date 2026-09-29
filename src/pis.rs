@@ -87,6 +87,12 @@ pub fn is_valid(pis: &str) -> bool {
         return false;
     }
 
+    // A PIS made of one repeated digit is never valid, even when the check
+    // digit happens to match (same rule as CPF/CNPJ).
+    if pis.chars().all(|c| c == pis.chars().next().unwrap()) {
+        return false;
+    }
+
     let expected_check_digit = checksum(&pis[..10]);
     let actual_check_digit = pis.chars().nth(10).and_then(|c| c.to_digit(10));
 
@@ -158,6 +164,32 @@ pub fn generate() -> String {
     let check_digit = checksum(&base);
 
     format!("{}{}", base, check_digit)
+}
+
+/// Removes PIS formatting and keeps only digits, capped to 11 digits.
+///
+/// # Arguments
+///
+/// * `value` - A PIS string that may contain formatting symbols or other characters.
+///
+/// # Returns
+///
+/// A string with only the digits of `value`, capped to 11 characters.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::pis::parse;
+///
+/// assert_eq!(parse("123.45678.90-1"), "12345678901");
+/// assert_eq!(parse("12345678901123"), "12345678901");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(11)
+        .collect()
 }
 
 #[cfg(test)]
@@ -255,5 +287,20 @@ mod tests {
 
         let cleaned = remove_symbols(&formatted.unwrap());
         assert_eq!(cleaned, pis);
+    }
+
+    #[test]
+    fn test_is_valid_rejects_repeated_digits() {
+        assert!(!is_valid("00000000000"));
+        assert!(!is_valid("99999999999"));
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("123.45678.90-1"), "12345678901");
+        assert_eq!(parse("12345678901"), "12345678901");
+        assert_eq!(parse("123#Error*&@#45678#Char!90-1"), "12345678901");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("12345678901123"), "12345678901");
     }
 }

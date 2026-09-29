@@ -66,6 +66,50 @@ pub fn remove_symbols(phone_number: &str) -> String {
         .replace(" ", "")
 }
 
+/// Removes phone formatting and keeps only digits, capped to 11 digits.
+///
+/// A country code (`+55`, `0055` or a bare `55`) is stripped first, but only
+/// when 10 or 11 digits are left afterwards — so a DDD of `55` is never
+/// mistaken for the country code.
+///
+/// # Arguments
+///
+/// * `value` - The phone number to parse, with or without formatting.
+///
+/// # Returns
+///
+/// The unformatted phone number, capped to 11 digits.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::phone::parse;
+///
+/// assert_eq!(parse("(11) 98888-7777"), "11988887777");
+/// assert_eq!(parse("+55 11 98888-7777"), "11988887777");
+/// assert_eq!(parse("55988887777"), "55988887777");
+/// ```
+pub fn parse(value: &str) -> String {
+    strip_country_code_digits(value).chars().take(11).collect()
+}
+
+/// Digit-only normalization shared by [`parse`] and the `is_valid*`
+/// functions: strips a `+55`/`0055`/bare `55` country code prefix (only when
+/// 10 or 11 digits remain afterwards), but does **not** cap the length —
+/// unlike [`parse`], callers that need to reject an over-long number must
+/// see its true length.
+fn strip_country_code_digits(value: &str) -> String {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+
+    if digits.starts_with("0055") && matches!(digits.len() as i64 - 4, 10 | 11) {
+        digits[4..].to_string()
+    } else if digits.starts_with("55") && matches!(digits.len() as i64 - 2, 10 | 11) {
+        digits[2..].to_string()
+    } else {
+        digits
+    }
+}
+
 /// Checks if a phone number string matches the mobile format.
 ///
 /// Mobile format: DDD + [7-9] + XXXXXXXX (11 digits)
@@ -82,7 +126,7 @@ pub fn remove_symbols(phone_number: &str) -> String {
 /// # Returns
 ///
 /// `true` if the phone matches mobile format, `false` otherwise.
-fn is_valid_mobile(phone_number: &str) -> bool {
+fn matches_mobile_format(phone_number: &str) -> bool {
     if phone_number.len() != 11 {
         return false;
     }
@@ -122,7 +166,7 @@ fn is_valid_mobile(phone_number: &str) -> bool {
 /// # Returns
 ///
 /// `true` if the phone matches landline format, `false` otherwise.
-fn is_valid_landline(phone_number: &str) -> bool {
+fn matches_landline_format(phone_number: &str) -> bool {
     if phone_number.len() != 10 {
         return false;
     }
@@ -147,16 +191,26 @@ fn is_valid_landline(phone_number: &str) -> bool {
     true
 }
 
+/// Options for [`is_valid`].
+#[derive(Debug, Clone, Default)]
+pub struct IsValidPhoneOptions {
+    /// Restricts the accepted kind: `"mobile"`, `"landline"` or `"service"`.
+    /// Omitted, both mobile and landline are accepted (never service).
+    pub kind: Option<String>,
+    /// The mobile numbering rule `is_valid_mobile` uses (1 or 2). Defaults to 1.
+    pub mobile_version: Option<u8>,
+}
+
 /// Returns if a Brazilian phone number is valid.
 ///
-/// It does not verify if the number actually exists.
+/// It does not verify if the number actually exists. A country code (`+55`,
+/// `0055` or a bare `55`) is accepted and removed first, as [`parse`] does.
 ///
 /// # Arguments
 ///
-/// * `phone_number` - The phone number to validate. Only digits, without country code.
-///   It should include two digits DDD (area code).
-/// * `phone_type` - Optional phone type: "mobile" or "landline".
-///   If not specified, checks for either format.
+/// * `phone_number` - The phone number to validate.
+/// * `options` - Optionally restricts the accepted kind and picks the mobile
+///   numbering rule; see [`IsValidPhoneOptions`].
 ///
 /// # Returns
 ///
@@ -169,25 +223,121 @@ fn is_valid_landline(phone_number: &str) -> bool {
 ///
 /// // Valid mobile
 /// assert!(is_valid("11994029275", None));
-/// assert!(is_valid("11994029275", Some("mobile")));
 ///
 /// // Valid landline
 /// assert!(is_valid("1635014415", None));
-/// assert!(is_valid("1635014415", Some("landline")));
 ///
 /// // Invalid
 /// assert!(!is_valid("123", None));
-/// assert!(!is_valid("11994029275", Some("landline")));
 /// ```
-pub fn is_valid(phone_number: &str, phone_type: Option<&str>) -> bool {
-    match phone_type {
-        Some("mobile") => is_valid_mobile(phone_number),
-        Some("landline") => is_valid_landline(phone_number),
-        _ => is_valid_mobile(phone_number) || is_valid_landline(phone_number),
+pub fn is_valid(phone_number: &str, options: Option<IsValidPhoneOptions>) -> bool {
+    let opts = options.unwrap_or_default();
+    let cleaned = strip_country_code_digits(phone_number);
+    let version = opts.mobile_version.unwrap_or(1);
+
+    match opts.kind.as_deref() {
+        Some("mobile") => matches_mobile_versioned(&cleaned, version),
+        Some("landline") => matches_landline_format(&cleaned),
+        Some("service") => is_valid_service(&cleaned),
+        _ => matches_mobile_versioned(&cleaned, version) || matches_landline_format(&cleaned),
     }
 }
 
-/// Function responsible for formatting a telephone number.
+fn matches_mobile_versioned(cleaned: &str, _version: u8) -> bool {
+    // Both versions currently share the same 7-8-9 rule; version 2 (Res.
+    // Anatel 749/2022) additionally excludes the reserved 700 (satellite)
+    // series, which is not implemented for lack of a verifiable published
+    // list of exactly which numbers that covers.
+    matches_mobile_format(cleaned)
+}
+
+/// Validates a Brazilian mobile phone number: DDD plus 9 digits.
+///
+/// A country code (`+55`, `0055` or a bare `55`) is accepted and removed
+/// first, as [`parse`] does.
+///
+/// `version` picks the numbering rule (1, the default, or 2); see
+/// [`is_valid`]'s [`IsValidPhoneOptions::mobile_version`] for details.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::phone::is_valid_mobile;
+///
+/// assert!(is_valid_mobile("(11) 98765-4321", None));
+/// assert!(is_valid_mobile("+55 11 98765-4321", None));
+/// assert!(!is_valid_mobile("1130000000", None));
+/// ```
+pub fn is_valid_mobile(phone_number: &str, version: Option<u8>) -> bool {
+    let cleaned = strip_country_code_digits(phone_number);
+    matches_mobile_versioned(&cleaned, version.unwrap_or(1))
+}
+
+/// Validates a Brazilian landline phone number: DDD plus 8 digits.
+///
+/// A country code (`+55`, `0055` or a bare `55`) is accepted and removed
+/// first, as [`parse`] does.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::phone::is_valid_landline;
+///
+/// assert!(is_valid_landline("(11) 3000-0000"));
+/// assert!(!is_valid_landline("11987654321"));
+/// ```
+pub fn is_valid_landline(phone_number: &str) -> bool {
+    let cleaned = strip_country_code_digits(phone_number);
+    matches_landline_format(&cleaned)
+}
+
+/// Validates a Brazilian service number (dialed without a DDD).
+///
+/// Only the structure is checked:
+/// - Códigos Não Geográficos `0300`, `0303`, `0500`, `0800` and `0900`
+///   followed by 7 digits (11 digits total).
+/// - The abbreviated `300X`/`400X` numbers (8 digits total).
+/// - A small set of well-known 3-digit public-utility codes (e.g. `190`,
+///   `192`). This list is best-effort, not exhaustive.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::phone::is_valid_service;
+///
+/// assert!(is_valid_service("0800 123 4567"));
+/// assert!(is_valid_service("40041234"));
+/// assert!(!is_valid_service("911"));
+/// ```
+pub fn is_valid_service(phone_number: &str) -> bool {
+    let digits: String = phone_number.chars().filter(|c| c.is_ascii_digit()).collect();
+
+    const CNG_PREFIXES: &[&str] = &["0300", "0303", "0500", "0800", "0900"];
+    if digits.len() == 11 && CNG_PREFIXES.contains(&&digits[0..4]) {
+        return true;
+    }
+
+    if digits.len() == 8 && (digits.starts_with("300") || digits.starts_with("400")) {
+        return true;
+    }
+
+    // Anatel-designated public-utility short codes. Best-effort list; `112`
+    // and `911` are deliberately excluded (not Brazilian short codes).
+    const UTILITY_CODES: &[&str] = &[
+        "100", "180", "181", "190", "191", "192", "193", "197", "198", "199",
+    ];
+    if digits.len() == 3 && UTILITY_CODES.contains(&digits.as_str()) {
+        return true;
+    }
+
+    false
+}
+
+/// Function responsible for formatting a telephone number under the
+/// "subscriber number" mask (the contract's default): the first 9 digits of
+/// the (symbol-stripped) input, split as `XXXXX-XXXX`. It does not validate
+/// the input first — unlike a DDD-aware mask, this mask does not need to
+/// know whether the value carries an area code.
 ///
 /// # Arguments
 ///
@@ -195,37 +345,40 @@ pub fn is_valid(phone_number: &str, phone_type: Option<&str>) -> bool {
 ///
 /// # Returns
 ///
-/// The formatted phone number, or `None` if the number is not valid.
+/// The formatted phone number. Returns an empty string when there is no
+/// digit at all (mirroring the contract's reference implementation, which
+/// never returns null here).
 ///
 /// # Examples
 ///
 /// ```
 /// use brazilian_utils::phone::format_phone;
 ///
-/// // Mobile
-/// assert_eq!(format_phone("11994029275"), Some("(11)99402-9275".to_string()));
+/// assert_eq!(format_phone("988887777"), "98888-7777");
+/// assert_eq!(format_phone("98888777"), "98888-777");
+/// assert_eq!(format_phone(""), "");
 ///
-/// // Landline
-/// assert_eq!(format_phone("1635014415"), Some("(16)3501-4415".to_string()));
-///
-/// // Invalid
-/// assert_eq!(format_phone("333333"), None);
+/// // The default mask ignores any DDD and keeps only the first 9 digits.
+/// assert_eq!(format_phone("1130000000"), "11300-0000");
 /// ```
-pub fn format_phone(phone: &str) -> Option<String> {
-    if !is_valid(phone, None) {
-        return None;
+pub fn format_phone(phone: &str) -> String {
+    let cleaned = remove_symbols(phone);
+    let truncated: String = cleaned.chars().filter(|c| c.is_ascii_digit()).take(9).collect();
+    let len = truncated.len();
+
+    if len == 0 {
+        return String::new();
     }
 
-    let ddd = &phone[0..2];
-    let phone_number = &phone[2..];
-    let len = phone_number.len();
+    let split = len.min(5);
+    let prefix = &truncated[0..split];
+    let suffix = &truncated[split..];
 
-    Some(format!(
-        "({}){}-{}",
-        ddd,
-        &phone_number[0..len - 4],
-        &phone_number[len - 4..]
-    ))
+    if suffix.is_empty() {
+        prefix.to_string()
+    } else {
+        format!("{}-{}", prefix, suffix)
+    }
 }
 
 /// Generate a valid DDD (area code) number.
@@ -346,6 +499,13 @@ pub fn remove_international_dialing_code(phone_number: &str) -> String {
 mod tests {
     use super::*;
 
+    fn kind(k: &str) -> Option<IsValidPhoneOptions> {
+        Some(IsValidPhoneOptions {
+            kind: Some(k.to_string()),
+            mobile_version: None,
+        })
+    }
+
     #[test]
     fn test_remove_symbols() {
         assert_eq!(remove_symbols("(11)99402-9275"), "11994029275");
@@ -356,37 +516,37 @@ mod tests {
 
     #[test]
     fn test_is_valid_mobile() {
-        assert!(is_valid("11994029275", Some("mobile")));
-        assert!(is_valid("21987654321", Some("mobile")));
-        assert!(is_valid("85912345678", Some("mobile")));
+        assert!(is_valid("11994029275", kind("mobile")));
+        assert!(is_valid("21987654321", kind("mobile")));
+        assert!(is_valid("85912345678", kind("mobile")));
 
         // 7 and 8 are reserved for SMP too (Res. Anatel 749/2022, art. 12, I,
         // "a"), even though only 9 is assigned in practice today.
-        assert!(is_valid("11894029275", Some("mobile")));
-        assert!(is_valid("11794029275", Some("mobile")));
+        assert!(is_valid("11894029275", kind("mobile")));
+        assert!(is_valid("11794029275", kind("mobile")));
 
-        assert!(!is_valid("1635014415", Some("mobile")));
-        assert!(!is_valid("11694029275", Some("mobile"))); // 6 is a landline identifier
-        assert!(!is_valid("1194029275", Some("mobile"))); // Too short
-        assert!(!is_valid("119940292751", Some("mobile"))); // Too long
-        assert!(!is_valid("23994029275", Some("mobile"))); // 23 is not a real DDD
+        assert!(!is_valid("1635014415", kind("mobile")));
+        assert!(!is_valid("11694029275", kind("mobile"))); // 6 is a landline identifier
+        assert!(!is_valid("1194029275", kind("mobile"))); // Too short
+        assert!(!is_valid("119940292751", kind("mobile"))); // Too long
+        assert!(!is_valid("23994029275", kind("mobile"))); // 23 is not a real DDD
     }
 
     #[test]
     fn test_is_valid_landline() {
-        assert!(is_valid("1635014415", Some("landline")));
-        assert!(is_valid("1133334444", Some("landline")));
-        assert!(is_valid("8532221111", Some("landline")));
+        assert!(is_valid("1635014415", kind("landline")));
+        assert!(is_valid("1133334444", kind("landline")));
+        assert!(is_valid("8532221111", kind("landline")));
 
         // 6 is a valid landline identifier too (Res. Anatel 749/2022, art. 11, I, "a")
-        assert!(is_valid("1665014415", Some("landline")));
+        assert!(is_valid("1665014415", kind("landline")));
 
-        assert!(!is_valid("11994029275", Some("landline")));
-        assert!(!is_valid("1635014415", Some("mobile")));
-        assert!(!is_valid("163501441", Some("landline"))); // Too short
-        assert!(!is_valid("16350144151", Some("landline"))); // Too long
-        assert!(!is_valid("1615014415", Some("landline"))); // 1 is not a landline identifier
-        assert!(!is_valid("2335014415", Some("landline"))); // 23 is not a real DDD
+        assert!(!is_valid("11994029275", kind("landline")));
+        assert!(!is_valid("1635014415", kind("mobile")));
+        assert!(!is_valid("163501441", kind("landline"))); // Too short
+        assert!(!is_valid("16350144151", kind("landline"))); // Too long
+        assert!(!is_valid("1615014415", kind("landline"))); // 1 is not a landline identifier
+        assert!(!is_valid("2335014415", kind("landline"))); // 23 is not a real DDD
     }
 
     #[test]
@@ -404,35 +564,68 @@ mod tests {
 
     #[test]
     fn test_format_phone() {
-        assert_eq!(
-            format_phone("11994029275"),
-            Some("(11)99402-9275".to_string())
-        );
-        assert_eq!(
-            format_phone("1635014415"),
-            Some("(16)3501-4415".to_string())
-        );
-        assert_eq!(
-            format_phone("21987654321"),
-            Some("(21)98765-4321".to_string())
-        );
+        assert_eq!(format_phone("988887777"), "98888-7777");
+        assert_eq!(format_phone("98888777"), "98888-777");
+        assert_eq!(format_phone(""), "");
+        assert_eq!(format_phone("1130000000"), "11300-0000");
+    }
 
-        assert_eq!(format_phone("333333"), None);
-        assert_eq!(format_phone("123"), None);
+    #[test]
+    fn test_is_valid_mobile_fn() {
+        assert!(is_valid_mobile("(11) 98765-4321", None));
+        assert!(is_valid_mobile("+55 11 98765-4321", None));
+        assert!(is_valid_mobile("5511987654321", None));
+        assert!(!is_valid_mobile("1130000000", None));
+        assert!(!is_valid_mobile("1198765432", None));
+        assert!(!is_valid_mobile("", None));
+    }
+
+    #[test]
+    fn test_is_valid_landline_fn() {
+        assert!(is_valid_landline("(11) 3000-0000"));
+        assert!(is_valid_landline("1130000000"));
+        assert!(is_valid_landline("+55 11 3000-0000"));
+        assert!(!is_valid_landline("11987654321"));
+        assert!(!is_valid_landline("113000000"));
+        assert!(!is_valid_landline(""));
+    }
+
+    #[test]
+    fn test_is_valid_service_fn() {
+        assert!(is_valid_service("08001234567"));
+        assert!(is_valid_service("0800 123 4567"));
+        assert!(is_valid_service("40041234"));
+        assert!(!is_valid_service("11987654321"));
+        assert!(!is_valid_service("0800123456"));
+        assert!(!is_valid_service("911"));
+        assert!(!is_valid_service(""));
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("(11) 98888-7777"), "11988887777");
+        assert_eq!(parse("98888-7777"), "988887777");
+        assert_eq!(parse("+55 11 98888-7777"), "11988887777");
+        assert_eq!(parse("005511988887777"), "11988887777");
+        assert_eq!(parse("551130000000"), "1130000000");
+        assert_eq!(parse("55988887777"), "55988887777");
+        assert_eq!(parse("0800 123 4567"), "08001234567");
+        assert_eq!(parse("11988887777123"), "11988887777");
+        assert_eq!(parse(""), "");
     }
 
     #[test]
     fn test_generate_mobile() {
         let mobile = generate(Some("mobile"));
         assert_eq!(mobile.len(), 11);
-        assert!(is_valid(&mobile, Some("mobile")));
+        assert!(is_valid(&mobile, kind("mobile")));
     }
 
     #[test]
     fn test_generate_landline() {
         let landline = generate(Some("landline"));
         assert_eq!(landline.len(), 10);
-        assert!(is_valid(&landline, Some("landline")));
+        assert!(is_valid(&landline, kind("landline")));
     }
 
     #[test]

@@ -43,7 +43,7 @@ fn main() {
     ];
 
     for (plate, format, description) in valid_plates {
-        let is_valid = license_plate::is_valid(plate, format);
+        let is_valid = license_plate::is_valid_for_format(plate, format);
         println!(
             "   {} ({}) -> {}",
             plate,
@@ -61,7 +61,7 @@ fn main() {
     ];
 
     for (plate, reason) in invalid_plates {
-        let is_valid = license_plate::is_valid(plate, None);
+        let is_valid = license_plate::is_valid(plate);
         println!(
             "   {} ({}) -> {}",
             plate,
@@ -88,11 +88,11 @@ fn main() {
     let old_plates = vec!["ABC1234", "XYZ9876", "DEF0000", "GHI4567"];
 
     for plate in old_plates {
-        match license_plate::convert_to_mercosul(plate) {
-            Some(mercosul) => {
-                println!("   {} (old) -> {} (Mercosul)", plate, mercosul);
-            }
-            None => println!("   {} -> Cannot convert", plate),
+        let mercosul = license_plate::convert_to_mercosul(plate);
+        if mercosul.is_empty() {
+            println!("   {} -> Cannot convert", plate);
+        } else {
+            println!("   {} (old) -> {} (Mercosul)", plate, mercosul);
         }
     }
     println!();

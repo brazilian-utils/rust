@@ -1,0 +1,23 @@
+{
+  "source": [
+    "Ajuste SINIEF 07/2005 (CONFAZ) - creates the CSOSN table for ICMS operations of Simples Nacional optants",
+    "Manual de Orientacao do Contribuinte (MOC) da NF-e, Tabela 5.3 - Tabela B - Codigo de Situacao da Operacao - Simples Nacional (CSOSN) - https://www.nfe.fazenda.gov.br",
+    "Cross-checked against https://buscadorncm.com.br/cst/csosn"
+  ],
+  "fetchedAt": "2026-09-26",
+  "coverage": "full",
+  "note": "All 10 CSOSN codes in the official table (Ajuste SINIEF 07/2005 / NF-e MOC Tabela 5.3 Tabela B). CSOSN has no printed grouping/mask; codes are always written as the bare 3 digits.",
+  "count": 10,
+  "data": [
+    { "code": "101", "description": "Tributada pelo Simples Nacional com permissão de crédito" },
+    { "code": "102", "description": "Tributada pelo Simples Nacional sem permissão de crédito" },
+    { "code": "103", "description": "Isenção do ICMS no Simples Nacional para faixa de receita bruta" },
+    { "code": "201", "description": "Tributada pelo Simples Nacional com permissão de crédito e com cobrança do ICMS por substituição tributária" },
+    { "code": "202", "description": "Tributada pelo Simples Nacional sem permissão de crédito e com cobrança do ICMS por substituição tributária" },
+    { "code": "203", "description": "Isenção do ICMS no Simples Nacional para faixa de receita bruta e com cobrança do ICMS por substituição tributária" },
+    { "code": "300", "description": "Imune" },
+    { "code": "400", "description": "Não tributada pelo Simples Nacional" },
+    { "code": "500", "description": "ICMS cobrado anteriormente por substituição tributária (substituído) ou por antecipação" },
+    { "code": "900", "description": "Outros" }
+  ]
+}

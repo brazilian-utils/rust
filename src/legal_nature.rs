@@ -1,165 +1,92 @@
 /// Legal Nature (Natureza Jurídica) utilities for Brazilian companies.
 ///
 /// This module provides utilities for consulting and validating the official
-/// *Natureza Jurídica* (Legal Nature) codes defined by the Receita Federal do Brasil (RFB).
+/// *Natureza Jurídica* (Legal Nature) codes defined by CONCLA/IBGE.
 ///
-/// The codes and descriptions in this module are sourced from the official
-/// **Tabela de Natureza Jurídica** (RFB), as provided in the document used
-/// by the Cadastro Nacional (e.g., FCN), updated with the codes added by the
-/// CONCLA/IBGE **Natureza Jurídica 2021** revision.
-///
-/// Sources:
-/// - <https://www.gov.br/empresas-e-negocios/pt-br/drei/links-e-downloads/arquivos/TABELADENATUREZAJURDICA.pdf>
-/// - <https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021>
-/// - <https://tabelas.maino.com.br/codigos-de-natureza-juridica> (2021 table mirror)
+/// Data source: CONCLA Tabela de Natureza Jurídica 2021 (Notas
+/// Explicativas), the DREI legacy table (for retired/legacy codes) and the
+/// CONCLA revision history; see `src/data/legalNature.json` for provenance.
+/// The "retired" sub-list is best-effort, not necessarily exhaustive (see
+/// that file's `note`).
+use rand::Rng;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-/// Get the complete legal nature codes table.
-fn legal_nature_table() -> &'static HashMap<&'static str, &'static str> {
-    static TABLE: OnceLock<HashMap<&str, &str>> = OnceLock::new();
-    TABLE.get_or_init(|| {
-        let mut map = HashMap::new();
+/// A CONCLA category (the first digit of a legal nature code).
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct LegalNatureCategory {
+    pub code: String,
+    pub description: String,
+}
 
-        // 1. ADMINISTRAÇÃO PÚBLICA
-        map.insert("1015", "Órgão Público do Poder Executivo Federal");
-        map.insert(
-            "1023",
-            "Órgão Público do Poder Executivo Estadual ou do Distrito Federal",
-        );
-        map.insert("1031", "Órgão Público do Poder Executivo Municipal");
-        map.insert("1040", "Órgão Público do Poder Legislativo Federal");
-        map.insert(
-            "1058",
-            "Órgão Público do Poder Legislativo Estadual ou do Distrito Federal",
-        );
-        map.insert("1066", "Órgão Público do Poder Legislativo Municipal");
-        map.insert("1074", "Órgão Público do Poder Judiciário Federal");
-        map.insert("1082", "Órgão Público do Poder Judiciário Estadual");
-        map.insert("1104", "Autarquia Federal");
-        map.insert("1112", "Autarquia Estadual ou do Distrito Federal");
-        map.insert("1120", "Autarquia Municipal");
-        map.insert("1139", "Fundação Federal");
-        map.insert("1147", "Fundação Estadual ou do Distrito Federal");
-        map.insert("1155", "Fundação Municipal");
-        map.insert("1163", "Órgão Público Autônomo da União");
-        map.insert(
-            "1171",
-            "Órgão Público Autônomo Estadual ou do Distrito Federal",
-        );
-        map.insert("1180", "Órgão Público Autônomo Municipal");
-        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
-        map.insert("1198", "Comissão Polinacional");
-        map.insert(
-            "1210",
-            "Consórcio Público de Direito Público (Associação Pública)",
-        );
-        map.insert("1236", "Estado ou Distrito Federal");
-        map.insert("1244", "Município");
-        map.insert("1252", "Fundação Pública de Direito Privado Federal");
-        map.insert(
-            "1279",
-            "Fundação Pública de Direito Privado Municipal",
-        );
-        map.insert("1333", "Fundo Público da Administração Direta Municipal");
-        map.insert("1341", "União");
+#[derive(Debug, Clone, Deserialize)]
+struct RawLegalNatureEntry {
+    code: String,
+    description: String,
+    category: LegalNatureCategory,
+    legacy: bool,
+    #[serde(rename = "currentCode", default)]
+    current_code: Option<String>,
+}
 
-        // 2. ENTIDADES EMPRESARIAIS
-        map.insert("2011", "Empresa Pública");
-        map.insert("2038", "Sociedade de Economia Mista");
-        map.insert("2046", "Sociedade Anônima Aberta");
-        map.insert("2054", "Sociedade Anônima Fechada");
-        map.insert("2062", "Sociedade Empresária Limitada");
-        map.insert("2070", "Sociedade Empresária em Nome Coletivo");
-        map.insert("2089", "Sociedade Empresária em Comandita Simples");
-        map.insert("2097", "Sociedade Empresária em Comandita por Ações");
-        map.insert(
-            "2100",
-            "Sociedade Mercantil de Capital e Indústria (extinta pelo NCC/2002)",
-        );
-        map.insert("2127", "Sociedade Empresária em Conta de Participação");
-        map.insert("2135", "Empresário (Individual)");
-        map.insert("2143", "Cooperativa");
-        map.insert("2151", "Consórcio de Sociedades");
-        map.insert("2160", "Grupo de Sociedades");
-        map.insert(
-            "2178",
-            "Estabelecimento, no Brasil, de Sociedade Estrangeira",
-        );
-        map.insert(
-            "2194",
-            "Estabelecimento, no Brasil, de Empresa Binacional Argentino-Brasileira",
-        );
-        map.insert("2208", "Entidade Binacional Itaipu");
-        map.insert("2216", "Empresa Domiciliada no Exterior");
-        map.insert("2224", "Clube/Fundo de Investimento");
-        map.insert("2232", "Sociedade Simples Pura");
-        map.insert("2240", "Sociedade Simples Limitada");
-        map.insert("2259", "Sociedade em Nome Coletivo");
-        map.insert("2267", "Sociedade em Comandita Simples");
-        map.insert("2275", "Sociedade Simples em Conta de Participação");
-        map.insert("2305", "Empresa Individual de Responsabilidade Limitada");
-        map.insert(
-            "2313",
-            "Empresa Individual de Responsabilidade Limitada (de Natureza Simples)",
-        );
-        map.insert("2356", "Investidor Não Residente");
+#[derive(Debug, Deserialize)]
+struct LegalNatureFile {
+    data: Vec<RawLegalNatureEntry>,
+    retired: Vec<RawLegalNatureEntry>,
+}
 
-        // 3. ENTIDADES SEM FINS LUCRATIVOS
-        map.insert("3034", "Serviço Notarial e Registral (Cartório)");
-        map.insert("3042", "Organização Social");
-        map.insert(
-            "3050",
-            "Organização da Sociedade Civil de Interesse Público (Oscip)",
-        );
-        map.insert(
-            "3069",
-            "Outras Formas de Fundações Mantidas com Recursos Privados",
-        );
-        map.insert("3077", "Serviço Social Autônomo");
-        map.insert("3085", "Condomínio Edilícios");
-        map.insert(
-            "3093",
-            "Unidade Executora (Programa Dinheiro Direto na Escola)",
-        );
-        map.insert("3107", "Comissão de Conciliação Prévia");
-        map.insert("3115", "Entidade de Mediação e Arbitragem");
-        map.insert("3123", "Partido Político");
-        map.insert("3131", "Entidade Sindical");
-        map.insert(
-            "3204",
-            "Estabelecimento, no Brasil, de Fundação ou Associação Estrangeiras",
-        );
-        map.insert("3212", "Fundação ou Associação Domiciliada no Exterior");
-        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
-        map.insert("3271", "Órgão de Direção Local de Partido Político");
-        map.insert("3280", "Comitê Financeiro de Partido Político");
-        map.insert("3310", "Demais Condomínios");
-        map.insert(
-            "3328",
-            "Plano de Benefícios de Previdência Complementar Fechada",
-        );
-        // 2021 renamed this from "Outras Formas de Associação" to "Associação
-        // Privada" (see https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021/33897-2021-399-9-associacao-privada).
-        map.insert("3999", "Associação Privada");
+/// A legal nature entry, as returned by [`get`] and [`list_by_category`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct LegalNature {
+    pub code: String,
+    pub description: String,
+    pub category: LegalNatureCategory,
+    pub legacy: bool,
+    pub current_code: Option<String>,
+}
 
-        // 4. PESSOAS FÍSICAS
-        map.insert("4014", "Empresa Individual Imobiliária");
-        map.insert("4022", "Segurado Especial");
-        map.insert("4081", "Contribuinte individual");
-        // Code added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
-        map.insert("4111", "Leiloeiro");
+impl From<&RawLegalNatureEntry> for LegalNature {
+    fn from(e: &RawLegalNatureEntry) -> Self {
+        LegalNature {
+            code: e.code.clone(),
+            description: e.description.clone(),
+            category: e.category.clone(),
+            legacy: e.legacy,
+            current_code: e.current_code.clone(),
+        }
+    }
+}
 
-        // 5. ORGANIZAÇÕES INTERNACIONAIS E OUTRAS INSTITUIÇÕES EXTRATERRITORIAIS
-        map.insert(
-            "5002",
-            "Organização Internacional e Outras Instituições Extraterritoriais",
-        );
-        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE).
-        map.insert("5029", "Representação Diplomática Estrangeira");
-        map.insert("5037", "Outras Instituições Extraterritoriais");
+struct Tables {
+    in_force: Vec<RawLegalNatureEntry>,
+    retired: Vec<RawLegalNatureEntry>,
+    by_code: HashMap<String, usize>, // index into a combined vec
+    combined: Vec<RawLegalNatureEntry>,
+}
 
-        map
+fn tables() -> &'static Tables {
+    static TABLES: OnceLock<Tables> = OnceLock::new();
+    TABLES.get_or_init(|| {
+        const JSON_DATA: &str = include_str!("data/legalNature.json");
+        let parsed: LegalNatureFile =
+            serde_json::from_str(JSON_DATA).expect("Failed to parse legalNature.json");
+
+        let mut combined = parsed.data.clone();
+        combined.extend(parsed.retired.clone());
+
+        let by_code: HashMap<String, usize> = combined
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.code.clone(), i))
+            .collect();
+
+        Tables {
+            in_force: parsed.data,
+            retired: parsed.retired,
+            by_code,
+            combined,
+        }
     })
 }
 
@@ -176,19 +103,9 @@ fn normalize(code: &str) -> Option<String> {
     }
 }
 
-/// Check if a string corresponds to a valid *Natureza Jurídica* (Legal Nature) code.
-///
-/// This function validates a legal nature code according to the official table from
-/// Receita Federal do Brasil (RFB). The code is normalized before validation,
-/// accepting formats like "2062" or "206-2".
-///
-/// # Arguments
-///
-/// * `code` - The code to be validated. Accepts either "NNNN" or "NNN-N".
-///
-/// # Returns
-///
-/// Returns `true` if the normalized code exists in the official table, `false` otherwise.
+/// Check if a string corresponds to a valid *Natureza Jurídica* (Legal
+/// Nature) code: one of the 92 in-force codes, plus the codes a past
+/// revision retired.
 ///
 /// # Examples
 ///
@@ -199,31 +116,14 @@ fn normalize(code: &str) -> Option<String> {
 /// assert_eq!(is_valid("206-2"), true);
 /// assert_eq!(is_valid("9999"), false);
 /// ```
-///
-/// # Note
-///
-/// Validation is based solely on the presence of the code in the official RFB table.
-/// It does not verify the current legal status or registration of the entity.
 pub fn is_valid(code: &str) -> bool {
-    if let Some(normalized) = normalize(code) {
-        legal_nature_table().contains_key(normalized.as_str())
-    } else {
-        false
+    match normalize(code) {
+        Some(normalized) => tables().by_code.contains_key(&normalized),
+        None => false,
     }
 }
 
 /// Retrieve the description of a *Natureza Jurídica* (Legal Nature) code.
-///
-/// This function returns the official description for a given legal nature code
-/// from the Receita Federal do Brasil (RFB) table.
-///
-/// # Arguments
-///
-/// * `code` - The code to look up. Accepts either "NNNN" or "NNN-N".
-///
-/// # Returns
-///
-/// The full description if the code is valid, otherwise `None`.
 ///
 /// # Examples
 ///
@@ -231,39 +131,189 @@ pub fn is_valid(code: &str) -> bool {
 /// use brazilian_utils::legal_nature::get_description;
 ///
 /// assert_eq!(get_description("2062"), Some("Sociedade Empresária Limitada"));
-/// assert_eq!(get_description("101-5"), Some("Órgão Público do Poder Executivo Federal"));
 /// assert_eq!(get_description("0000"), None);
 /// ```
 pub fn get_description(code: &str) -> Option<&'static str> {
-    if let Some(normalized) = normalize(code) {
-        legal_nature_table().get(normalized.as_str()).copied()
-    } else {
-        None
-    }
+    let normalized = normalize(code)?;
+    let idx = *tables().by_code.get(&normalized)?;
+    Some(tables().combined[idx].description.as_str())
 }
 
-/// Return a copy of the full *Natureza Jurídica* (Legal Nature) table.
+/// Looks a legal nature code up in the CONCLA Natureza Jurídica 2021 table;
+/// returns `None` for an unknown code.
 ///
-/// This function returns a HashMap containing all legal nature codes and their
-/// corresponding descriptions from the official RFB table.
+/// A code retired by a past revision comes back flagged as legacy, with the
+/// code it corresponds to today, or `None` when it has no successor.
 ///
-/// # Returns
+/// # Examples
 ///
-/// A HashMap mapping 4-digit codes to their descriptions.
+/// ```
+/// use brazilian_utils::legal_nature::get;
+///
+/// let ln = get("2062").unwrap();
+/// assert_eq!(ln.description, "Sociedade Empresária Limitada");
+/// assert!(!ln.legacy);
+///
+/// let legacy = get("2208").unwrap();
+/// assert!(legacy.legacy);
+/// assert_eq!(legacy.current_code.as_deref(), Some("2275"));
+/// ```
+pub fn get(value: &str) -> Option<LegalNature> {
+    let normalized = normalize(value)?;
+    let idx = *tables().by_code.get(&normalized)?;
+    Some(LegalNature::from(&tables().combined[idx]))
+}
+
+/// Options for [`list_all`].
+#[derive(Debug, Clone, Default)]
+pub struct GetLegalNaturesParams {
+    /// Also include the retired/legacy codes. Defaults to `false`.
+    pub include_retired: Option<bool>,
+}
+
+/// Return the legal nature table as a map from code to description.
+///
+/// Only the 92 codes in force by default; `params.include_retired` also
+/// includes the retired codes.
 ///
 /// # Examples
 ///
 /// ```
 /// use brazilian_utils::legal_nature::list_all;
 ///
-/// let table = list_all();
-/// assert!(table.len() > 0);
+/// let table = list_all(None);
+/// assert_eq!(table.len(), 92);
 /// assert_eq!(table.get("2062"), Some(&"Sociedade Empresária Limitada".to_string()));
 /// ```
-pub fn list_all() -> HashMap<String, String> {
-    legal_nature_table()
+pub fn list_all(params: Option<GetLegalNaturesParams>) -> HashMap<String, String> {
+    let include_retired = params.and_then(|p| p.include_retired).unwrap_or(false);
+    let t = tables();
+    let mut map: HashMap<String, String> = t
+        .in_force
         .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .map(|e| (e.code.clone(), e.description.clone()))
+        .collect();
+    if include_retired {
+        for e in &t.retired {
+            map.insert(e.code.clone(), e.description.clone());
+        }
+    }
+    map
+}
+
+/// Options for [`list_by_category`].
+#[derive(Debug, Clone, Default)]
+pub struct GetLegalNaturesByCategoryOptions {
+    /// Also include the retired/legacy codes of the category. Defaults to
+    /// `false`.
+    pub include_retired: Option<bool>,
+}
+
+/// Returns every legal nature of a CONCLA category (the first digit of the
+/// code), sorted by code.
+///
+/// Categories: 1 Administração Pública, 2 Entidades Empresariais, 3
+/// Entidades sem Fins Lucrativos, 4 Pessoas Físicas, 5 Organizações
+/// Internacionais e Outras Instituições Extraterritoriais.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::legal_nature::list_by_category;
+///
+/// let category5 = list_by_category("5", None);
+/// assert_eq!(category5.len(), 3);
+/// assert_eq!(category5[0].code, "5010");
+///
+/// assert_eq!(list_by_category("0", None), Vec::new());
+/// ```
+pub fn list_by_category(
+    category: &str,
+    options: Option<GetLegalNaturesByCategoryOptions>,
+) -> Vec<LegalNature> {
+    let category = category.trim();
+    if category.len() != 1 || !category.chars().all(|c| c.is_ascii_digit()) {
+        return Vec::new();
+    }
+
+    let include_retired = options.and_then(|o| o.include_retired).unwrap_or(false);
+    let t = tables();
+
+    let mut result: Vec<LegalNature> = t
+        .in_force
+        .iter()
+        .filter(|e| e.code.starts_with(category))
+        .map(LegalNature::from)
+        .collect();
+
+    if include_retired {
+        result.extend(
+            t.retired
+                .iter()
+                .filter(|e| e.code.starts_with(category))
+                .map(LegalNature::from),
+        );
+    }
+
+    result.sort_by(|a, b| a.code.cmp(&b.code));
+    result
+}
+
+/// Formats a legal nature code as `NNN-N`; use [`is_valid`] to check the
+/// code. The mask is applied as far as the digits go.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::legal_nature::format;
+///
+/// assert_eq!(format("2062"), "206-2");
+/// assert_eq!(format("206"), "206");
+/// assert_eq!(format(""), "");
+/// ```
+pub fn format(value: &str) -> String {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() <= 3 {
+        digits
+    } else {
+        format!("{}-{}", &digits[0..3], &digits[3..digits.len().min(4)])
+    }
+}
+
+/// Generates a random valid legal nature code (4 digits), drawn only among
+/// the 92 codes in force, never a retired one.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::legal_nature::{generate, is_valid};
+///
+/// let code = generate();
+/// assert_eq!(code.len(), 4);
+/// assert!(is_valid(&code));
+/// ```
+pub fn generate() -> String {
+    let in_force = &tables().in_force;
+    let mut rng = rand::thread_rng();
+    let idx = rng.gen_range(0..in_force.len());
+    in_force[idx].code.clone()
+}
+
+/// Removes legal nature formatting and keeps only digits, capped to 4
+/// digits.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::legal_nature::parse;
+///
+/// assert_eq!(parse("206-2"), "2062");
+/// ```
+pub fn parse(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_digit())
+        .take(4)
         .collect()
 }
 
@@ -273,7 +323,6 @@ mod tests {
 
     #[test]
     fn test_is_valid_formats() {
-        // Accept both "NNNN" and "NNN-N" formats
         assert!(is_valid("2062"));
         assert!(is_valid("206-2"));
         assert!(is_valid("101-5"));
@@ -282,46 +331,33 @@ mod tests {
 
     #[test]
     fn test_is_valid_known_codes() {
-        // Known valid codes from different sections
-        assert!(is_valid("1015")); // Administração Pública
-        assert!(is_valid("2062")); // Entidades Empresariais
-        assert!(is_valid("2143")); // Cooperativa
-        assert!(is_valid("2305")); // EIRELI
-        assert!(is_valid("3034")); // Entidades sem fins lucrativos
-        assert!(is_valid("3131")); // Entidade Sindical
-        assert!(is_valid("3212")); // Fundação no Exterior
-        assert!(is_valid("4014")); // Pessoas Físicas
-        assert!(is_valid("5002")); // Organizações Internacionais
+        assert!(is_valid("1015"));
+        assert!(is_valid("2062"));
+        assert!(is_valid("2143"));
+        assert!(is_valid("3034"));
+        assert!(is_valid("4014"));
+        assert!(is_valid("5010"));
     }
 
     #[test]
-    fn test_is_valid_2021_codes() {
-        // Codes added by the Tabela de Natureza Jurídica 2021 (CONCLA/IBGE)
-        // that were missing from the pre-2021 table.
-        for code in [
-            "1198", "1210", "1236", "1244", "1252", "1279", "1333", "1341", "2313", "2356",
-            "3271", "3280", "3310", "3328", "4111", "5029", "5037",
-        ] {
-            assert!(is_valid(code), "{code} should be a valid 2021 code");
-        }
-    }
-
-    #[test]
-    fn test_get_description_3999_is_2021_associacao_privada() {
-        // The 2021 table renamed 399-9 from "Outras Formas de Associação" to
-        // "Associação Privada".
-        assert_eq!(get_description("3999"), Some("Associação Privada"));
+    fn test_is_valid_retired_codes() {
+        // Retired codes are still accepted by is_valid.
+        assert!(is_valid("2208"));
+        assert!(is_valid("2100"));
     }
 
     #[test]
     fn test_is_valid_invalid_codes() {
-        assert!(!is_valid("")); // Empty
-        assert!(!is_valid("20")); // Too short
-        assert!(!is_valid("20623")); // Too long
-        assert!(!is_valid("abcd")); // Non-digits
-        assert!(!is_valid("---")); // No digits
-        assert!(!is_valid("9999")); // Not in table
-        assert!(!is_valid("0000")); // Not in table
+        assert!(!is_valid(""));
+        assert!(!is_valid("20"));
+        assert!(!is_valid("20623"));
+        assert!(!is_valid("abcd"));
+        assert!(!is_valid("---"));
+        assert!(!is_valid("9999"));
+        assert!(!is_valid("0000"));
+        assert!(!is_valid("3329"));
+        assert!(!is_valid("2241"));
+        assert!(!is_valid("3311"));
     }
 
     #[test]
@@ -335,10 +371,8 @@ mod tests {
             Some("Órgão Público do Poder Executivo Federal")
         );
         assert_eq!(get_description("2143"), Some("Cooperativa"));
-        assert_eq!(
-            get_description("5002"),
-            Some("Organização Internacional e Outras Instituições Extraterritoriais")
-        );
+        assert_eq!(get_description("2240"), Some("Sociedade Simples Limitada"));
+        assert_eq!(get_description("224-0"), Some("Sociedade Simples Limitada"));
     }
 
     #[test]
@@ -350,49 +384,84 @@ mod tests {
     }
 
     #[test]
+    fn test_get() {
+        let ln = get("2062").unwrap();
+        assert_eq!(ln.code, "2062");
+        assert_eq!(ln.description, "Sociedade Empresária Limitada");
+        assert_eq!(ln.category.code, "2");
+        assert!(!ln.legacy);
+
+        let masked = get("206-2").unwrap();
+        assert_eq!(masked.code, "2062");
+
+        let legacy = get("2208").unwrap();
+        assert_eq!(legacy.description, "Entidade Binacional Itaipu");
+        assert!(legacy.legacy);
+        assert_eq!(legacy.current_code.as_deref(), Some("2275"));
+
+        assert_eq!(get("0000"), None);
+        assert_eq!(get("206"), None);
+        assert_eq!(get(""), None);
+    }
+
+    #[test]
     fn test_list_all() {
-        let table = list_all();
-
-        // Check that we have all codes
-        assert!(table.len() > 40); // Should have around 50+ codes
-
-        // Check a few known entries
+        let table = list_all(None);
+        assert_eq!(table.len(), 92);
         assert_eq!(
             table.get("2062"),
             Some(&"Sociedade Empresária Limitada".to_string())
         );
-        assert_eq!(
-            table.get("1015"),
-            Some(&"Órgão Público do Poder Executivo Federal".to_string())
-        );
+        assert_eq!(table.get("2208"), None); // retired, excluded by default
+
+        let with_retired = list_all(Some(GetLegalNaturesParams {
+            include_retired: Some(true),
+        }));
+        assert_eq!(with_retired.len(), 98);
+        assert!(with_retired.contains_key("2208"));
     }
 
     #[test]
-    fn test_list_all_returns_copy() {
-        let mut table = list_all();
-        assert_eq!(
-            table.get("2062"),
-            Some(&"Sociedade Empresária Limitada".to_string())
-        );
+    fn test_list_by_category() {
+        let category5 = list_by_category("5", None);
+        assert_eq!(category5.len(), 3);
+        assert_eq!(category5[0].code, "5010");
+        assert_eq!(category5[1].code, "5029");
+        assert_eq!(category5[2].code, "5037");
 
-        // Modify the copy
-        table.insert("2062".to_string(), "X".to_string());
+        let category4 = list_by_category("4", None);
+        assert_eq!(category4.len(), 6);
 
-        // Original should be unchanged
-        assert_eq!(
-            get_description("2062"),
-            Some("Sociedade Empresária Limitada")
-        );
+        assert_eq!(list_by_category("0", None), Vec::new());
+        assert_eq!(list_by_category("9", None), Vec::new());
+        assert_eq!(list_by_category("2062", None), Vec::new());
+        assert_eq!(list_by_category("", None), Vec::new());
     }
 
     #[test]
-    fn test_normalize() {
-        assert_eq!(normalize("2062"), Some("2062".to_string()));
-        assert_eq!(normalize("206-2"), Some("2062".to_string()));
-        assert_eq!(normalize("20-62"), Some("2062".to_string()));
-        assert_eq!(normalize("2 0 6 2"), Some("2062".to_string()));
-        assert_eq!(normalize("20"), None); // Too short
-        assert_eq!(normalize("20623"), None); // Too long
-        assert_eq!(normalize("abcd"), None); // No digits
+    fn test_format() {
+        assert_eq!(format("2062"), "206-2");
+        assert_eq!(format("206-2"), "206-2");
+        assert_eq!(format("206"), "206");
+        assert_eq!(format(""), "");
+    }
+
+    #[test]
+    fn test_generate() {
+        for _ in 0..20 {
+            let code = generate();
+            assert_eq!(code.len(), 4);
+            assert!(is_valid(&code));
+            let entry = get(&code).unwrap();
+            assert!(!entry.legacy);
+        }
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("206-2"), "2062");
+        assert_eq!(parse("2062"), "2062");
+        assert_eq!(parse("206299"), "2062");
+        assert_eq!(parse(""), "");
     }
 }

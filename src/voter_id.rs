@@ -78,6 +78,48 @@ pub fn is_valid(voter_id: &str) -> bool {
     true
 }
 
+/// Removes voter ID formatting and keeps only digits, capped to 12 digits
+/// (13 when the UF digits are SP or MG).
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::voter_id::parse;
+///
+/// assert_eq!(parse("1234 5678 01 24"), "123456780124");
+/// assert_eq!(parse("1234 5678 8 01 91"), "1234567880191");
+/// assert_eq!(parse(""), "");
+/// ```
+pub fn parse(value: &str) -> String {
+    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+
+    if digits.len() > 12 {
+        let candidate13: String = digits.chars().take(13).collect();
+        if candidate13.len() == 13 {
+            let uf = &candidate13[9..11];
+            if uf == "01" || uf == "02" {
+                return candidate13;
+            }
+        }
+    }
+
+    digits.chars().take(12).collect()
+}
+
+/// Removes the formatting symbols (whitespace and dots; keeps everything
+/// else).
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::voter_id::remove_symbols;
+///
+/// assert_eq!(remove_symbols("6908 4709 28 28"), "690847092828");
+/// ```
+pub fn remove_symbols(value: &str) -> String {
+    value.chars().filter(|c| !c.is_whitespace() && *c != '.').collect()
+}
+
 /// Formats a voter ID for display with visual spaces.
 ///
 /// # Arguments
@@ -425,6 +467,19 @@ mod tests {
         assert!(is_length_valid("690847092828")); // 12 digits
         assert!(!is_length_valid("123")); // Too short
         assert!(!is_length_valid("12345678901234")); // Too long (14)
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("1234 5678 01 24"), "123456780124");
+        assert_eq!(parse("123456780124"), "123456780124");
+        assert_eq!(parse(""), "");
+        assert_eq!(parse("1234 5678 8 01 91"), "1234567880191");
+    }
+
+    #[test]
+    fn test_remove_symbols() {
+        assert_eq!(remove_symbols("6908 4709 28 28"), "690847092828");
     }
 
     #[test]

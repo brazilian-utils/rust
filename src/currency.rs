@@ -267,11 +267,11 @@ pub fn number_to_words(n: i64) -> String {
     ONES[n as usize].to_string()
 }
 
-/// Format a numeric value as Brazilian currency (R$).
+/// Format a numeric value as Brazilian currency (BRL), without a currency symbol.
 ///
 /// This function takes a numeric value and formats it according to Brazilian
 /// currency standards:
-/// - Adds "R$" prefix
+/// - No currency symbol is added by default (matching the contract's reference)
 /// - Uses comma (,) as decimal separator
 /// - Uses period (.) as thousands separator
 /// - Always shows 2 decimal places
@@ -282,16 +282,16 @@ pub fn number_to_words(n: i64) -> String {
 ///
 /// # Returns
 ///
-/// A formatted currency string (e.g., "R$ 1.234,56") or None if the value cannot be formatted.
+/// A formatted currency string (e.g., "1.234,56") or None if the value cannot be formatted.
 ///
 /// # Examples
 ///
 /// ```
 /// use brazilian_utils::currency::format_currency;
 ///
-/// assert_eq!(format_currency(1234.56), Some("R$ 1.234,56".to_string()));
-/// assert_eq!(format_currency(0.0), Some("R$ 0,00".to_string()));
-/// assert_eq!(format_currency(-9876.54), Some("R$ -9.876,54".to_string()));
+/// assert_eq!(format_currency(1234.56), Some("1.234,56".to_string()));
+/// assert_eq!(format_currency(0.0), Some("0,00".to_string()));
+/// assert_eq!(format_currency(-9876.54), Some("-9.876,54".to_string()));
 /// ```
 pub fn format_currency(value: f64) -> Option<String> {
     if !value.is_finite() {
@@ -318,11 +318,101 @@ pub fn format_currency(value: f64) -> Option<String> {
     // Format with 2 decimal places
     let formatted = format!("{},{:02}", integer_str, decimal_part);
 
-    // Add currency symbol and negative sign if needed
+    // The contract's reference implementation adds no currency symbol by
+    // default (an opt-in `options.symbol` would add ""); no negative sign
+    // duplication.
     if negative {
-        Some(format!("R$ -{}", formatted))
+        Some(format!("-{}", formatted))
     } else {
-        Some(format!("R$ {}", formatted))
+        Some(formatted)
+    }
+}
+
+/// Parses a Brazilian currency (BRL) amount string into a number.
+///
+/// - The last `.` or `,` followed by 1 to 2 digits is read as the decimal
+///   separator; every other `.` or `,` is a thousands separator.
+/// - A value with no separator at all is read as cents (divided by 100).
+/// - A leading `-` is preserved; an empty (or blank) string parses as `0.0`.
+///
+/// # Arguments
+///
+/// * `value` - The BRL amount string to parse, e.g. `"R$ 1.234,56"`.
+///
+/// # Returns
+///
+/// The parsed value as `f64`.
+///
+/// # Examples
+///
+/// ```
+/// use brazilian_utils::currency::parse;
+///
+/// assert_eq!(parse("R$ 1.234,56"), 1234.56);
+/// assert_eq!(parse("1234"), 12.34);
+/// assert_eq!(parse(""), 0.0);
+/// ```
+pub fn parse(value: &str) -> f64 {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return 0.0;
+    }
+
+    let negative = trimmed.starts_with('-');
+
+    // Keep only digits and the two possible separators; everything else
+    // (currency symbol, spaces, letters) is noise.
+    let cleaned: String = trimmed
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '.' || *c == ',')
+        .collect();
+
+    if cleaned.is_empty() {
+        return 0.0;
+    }
+
+    let last_sep_idx = cleaned.rfind(|c| c == '.' || c == ',');
+
+    let (int_part, frac_part): (String, String) = match last_sep_idx {
+        Some(idx) => {
+            let after = &cleaned[idx + 1..];
+            if !after.is_empty() && after.len() <= 2 && after.chars().all(|c| c.is_ascii_digit())
+            {
+                let before = &cleaned[..idx];
+                let int_digits: String = before.chars().filter(|c| c.is_ascii_digit()).collect();
+                (int_digits, after.to_string())
+            } else {
+                let digits: String = cleaned.chars().filter(|c| c.is_ascii_digit()).collect();
+                (digits, String::new())
+            }
+        }
+        None => {
+            // No separator at all: the whole value is read as cents.
+            let digits: String = cleaned.chars().filter(|c| c.is_ascii_digit()).collect();
+            let cents: i64 = digits.parse().unwrap_or(0);
+            let result = cents as f64 / 100.0;
+            return if negative { -result } else { result };
+        }
+    };
+
+    let int_val: f64 = if int_part.is_empty() {
+        0.0
+    } else {
+        int_part.parse().unwrap_or(0.0)
+    };
+    let frac_val: f64 = if frac_part.is_empty() {
+        0.0
+    } else {
+        let frac_digits = frac_part.len() as i32;
+        let numer: f64 = frac_part.parse().unwrap_or(0.0);
+        numer / 10f64.powi(frac_digits)
+    };
+
+    let result = int_val + frac_val;
+    if negative {
+        -result
+    } else {
+        result
     }
 }
 
@@ -376,9 +466,13 @@ pub fn convert_real_to_text(value: f64) -> String {
     let is_negative = value < 0.0;
     let abs_value = value.abs();
 
-    // Split into integer and decimal parts
-    let reais = abs_value.floor() as i64;
-    let centavos = ((abs_value - reais as f64) * 100.0).round() as i64;
+    // Truncate (do not round) to 2 decimal places. A tiny epsilon corrects
+    // for binary floating point representation error (e.g. 0.29 * 100 ==
+    // 28.999999999999996) without masking a genuine 3rd-decimal digit, which
+    // contributes at least 0.1 to the fractional part here.
+    let total_cents = (abs_value * 100.0 + 1e-9).floor() as i64;
+    let reais = total_cents / 100;
+    let centavos = total_cents % 100;
 
     let mut result = String::new();
 
@@ -389,10 +483,15 @@ pub fn convert_real_to_text(value: f64) -> String {
     if reais > 0 {
         let reais_text = number_to_words(reais);
 
-        // Add "de" before "reais" for large numbers (million and above)
+        // "de reais"/"de real" is only used when the spoken number ends
+        // exactly on a bare "milhão"/"milhões" (or higher multiple of it)
+        // with nothing smaller following, e.g. "um milhão de reais" but
+        // "um milhão duzentos e trinta reais" (no "de").
+        let use_de = reais >= 1_000_000 && reais % 1_000_000 == 0;
+
         let currency_name = if reais == 1 {
             "real".to_string()
-        } else if reais >= 1_000_000 {
+        } else if use_de {
             "de reais".to_string()
         } else {
             "reais".to_string()
@@ -421,26 +520,26 @@ mod tests {
 
     #[test]
     fn test_format_currency_positive_values() {
-        assert_eq!(format_currency(1234.56), Some("R$ 1.234,56".to_string()));
+        assert_eq!(format_currency(1234.56), Some("1.234,56".to_string()));
         assert_eq!(
             format_currency(123236.70),
-            Some("R$ 123.236,70".to_string())
+            Some("123.236,70".to_string())
         );
-        assert_eq!(format_currency(1259.03), Some("R$ 1.259,03".to_string()));
+        assert_eq!(format_currency(1259.03), Some("1.259,03".to_string()));
     }
 
     #[test]
     fn test_format_currency_zero() {
-        assert_eq!(format_currency(0.0), Some("R$ 0,00".to_string()));
+        assert_eq!(format_currency(0.0), Some("0,00".to_string()));
     }
 
     #[test]
     fn test_format_currency_negative_values() {
         assert_eq!(
             format_currency(-123236.70),
-            Some("R$ -123.236,70".to_string())
+            Some("-123.236,70".to_string())
         );
-        assert_eq!(format_currency(-9876.54), Some("R$ -9.876,54".to_string()));
+        assert_eq!(format_currency(-9876.54), Some("-9.876,54".to_string()));
     }
 
     #[test]
@@ -448,27 +547,27 @@ mod tests {
         // Test decimal rounding
         assert_eq!(
             format_currency(123236.7676),
-            Some("R$ 123.236,77".to_string())
+            Some("123.236,77".to_string())
         );
-        assert_eq!(format_currency(10.555), Some("R$ 10,56".to_string()));
+        assert_eq!(format_currency(10.555), Some("10,56".to_string()));
     }
 
     #[test]
     fn test_format_currency_small_values() {
-        assert_eq!(format_currency(0.01), Some("R$ 0,01".to_string()));
-        assert_eq!(format_currency(0.99), Some("R$ 0,99".to_string()));
-        assert_eq!(format_currency(5.50), Some("R$ 5,50".to_string()));
+        assert_eq!(format_currency(0.01), Some("0,01".to_string()));
+        assert_eq!(format_currency(0.99), Some("0,99".to_string()));
+        assert_eq!(format_currency(5.50), Some("5,50".to_string()));
     }
 
     #[test]
     fn test_format_currency_large_values() {
         assert_eq!(
             format_currency(1_000_000.00),
-            Some("R$ 1.000.000,00".to_string())
+            Some("1.000.000,00".to_string())
         );
         assert_eq!(
             format_currency(999_999_999.99),
-            Some("R$ 999.999.999,99".to_string())
+            Some("999.999.999,99".to_string())
         );
     }
 
@@ -492,14 +591,14 @@ mod tests {
     #[test]
     fn test_format_currency_edge_cases() {
         // Very small positive value
-        assert_eq!(format_currency(0.001), Some("R$ 0,00".to_string()));
+        assert_eq!(format_currency(0.001), Some("0,00".to_string()));
 
         // Very small negative value - rounds to 0 but we treat as positive zero
-        assert_eq!(format_currency(-0.001), Some("R$ 0,00".to_string()));
+        assert_eq!(format_currency(-0.001), Some("0,00".to_string()));
 
         // Values that need rounding
-        assert_eq!(format_currency(1.234), Some("R$ 1,23".to_string()));
-        assert_eq!(format_currency(1.235), Some("R$ 1,24".to_string()));
+        assert_eq!(format_currency(1.234), Some("1,23".to_string()));
+        assert_eq!(format_currency(1.235), Some("1,24".to_string()));
     }
 
     #[test]
@@ -604,5 +703,44 @@ mod tests {
             "mil cento e onze reais e onze centavos"
         );
         assert_eq!(convert_real_to_text(123456.78), "cento e vinte e três mil quatrocentos e cinquenta e seis reais e setenta e oito centavos");
+    }
+
+    #[test]
+    fn test_convert_real_to_text_million_and_more_no_de() {
+        // "de reais" only applies when nothing follows the bare million(s);
+        // a million-plus-remainder amount does not get it.
+        assert_eq!(
+            convert_real_to_text(1000230.0),
+            "um milhão duzentos e trinta reais"
+        );
+    }
+
+    #[test]
+    fn test_convert_real_to_text_truncates_sub_cent() {
+        assert_eq!(
+            convert_real_to_text(1.999),
+            "um real e noventa e nove centavos"
+        );
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse("R$ 1.234,56"), 1234.56);
+        assert_eq!(parse("1234,56"), 1234.56);
+        assert_eq!(parse("R$ 0,50"), 0.5);
+        assert_eq!(parse("1.000.000,50"), 1000000.5);
+        assert_eq!(parse("-1.234,56"), -1234.56);
+        assert_eq!(parse("0,00"), 0.0);
+        assert_eq!(parse("1234"), 12.34);
+        assert_eq!(parse(""), 0.0);
+    }
+
+    #[test]
+    fn test_format_currency_no_symbol() {
+        assert_eq!(format_currency(1000.01), Some("1.000,01".to_string()));
+        assert_eq!(format_currency(0.01), Some("0,01".to_string()));
+        assert_eq!(format_currency(1.0), Some("1,00".to_string()));
+        assert_eq!(format_currency(1000000.01), Some("1.000.000,01".to_string()));
+        assert_eq!(format_currency(-10.1), Some("-10,10".to_string()));
     }
 }
